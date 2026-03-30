@@ -1,2 +1,6 @@
 venv/
 frontend/
+*.zip
+frontend/rx_block/web.zip
+build/
+dist/
