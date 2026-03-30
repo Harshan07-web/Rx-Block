@@ -1,210 +1,186 @@
 import 'package:flutter/material.dart';
 
-class ResultPage extends StatefulWidget {
+class ResultPage extends StatelessWidget {
   final Map data;
+
   ResultPage({required this.data});
 
   @override
-  _ResultPageState createState() => _ResultPageState();
-}
-
-class _ResultPageState extends State<ResultPage>
-    with SingleTickerProviderStateMixin {
-
-  late AnimationController _controller;
-  late Animation<double> scaleAnim;
-  late Animation<double> glowAnim;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _controller = AnimationController(
-      vsync: this,
-      duration: Duration(milliseconds: 800),
-    );
-
-    scaleAnim = Tween<double>(begin: 0.5, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.elasticOut),
-    );
-
-    glowAnim = Tween<double>(begin: 0.2, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
-    );
-
-    _controller.forward();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-
-    bool valid = widget.data["status"] == "valid";
-
-    Color mainColor = valid ? Colors.greenAccent : Colors.redAccent;
+    bool valid = data["status"] == "valid";
 
     return Scaffold(
-      backgroundColor: Color(0xFF050A18),
+      backgroundColor: Color(0xFFF5F6FA),
       appBar: AppBar(
-        title: Text("Verification Result"),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
+        title: Text("Drug Verification"),
+        backgroundColor: Colors.white,
+        elevation: 1,
+        foregroundColor: Colors.black,
       ),
+      body: Padding(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
 
-      body: Center(
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (_, __) {
-            return Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-
-                /// 🔥 Animated Icon with Glow
-                Transform.scale(
-                  scale: scaleAnim.value,
-                  child: Container(
-                    padding: EdgeInsets.all(25),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: mainColor.withOpacity(glowAnim.value),
-                          blurRadius: 40,
-                          spreadRadius: 5,
-                        )
-                      ],
-                    ),
-                    child: Icon(
-                      valid ? Icons.verified : Icons.cancel,
-                      size: 90,
-                      color: mainColor,
-                    ),
-                  ),
+            /// ✅ STATUS CARD
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: valid ? Color(0xFFE8F5E9) : Color(0xFFFFEBEE),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: valid ? Colors.green : Colors.red,
                 ),
-
-                SizedBox(height: 25),
-
-                /// 🔥 Main Text
-                AnimatedSwitcher(
-                  duration: Duration(milliseconds: 500),
-                  child: Text(
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    valid ? Icons.check_circle : Icons.error,
+                    color: valid ? Colors.green : Colors.red,
+                  ),
+                  SizedBox(width: 10),
+                  Text(
                     valid ? "GENUINE DRUG" : "FAKE DRUG",
-                    key: ValueKey(valid),
                     style: TextStyle(
-                      fontSize: 26,
                       fontWeight: FontWeight.bold,
-                      color: mainColor,
-                      letterSpacing: 1.5,
+                      color: valid ? Colors.green : Colors.red,
+                      fontSize: 16,
                     ),
                   ),
+                ],
+              ),
+            ),
+
+            SizedBox(height: 20),
+
+            /// 💊 DRUG NAME
+            Text(
+              data["drug_name"] ?? "-",
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+            ),
+
+            SizedBox(height: 15),
+
+            /// 📦 DETAILS SECTION
+            Text(
+              "Details",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: Colors.black87,
+              ),
+            ),
+
+            SizedBox(height: 10),
+
+            Container(
+              padding: EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Column(
+                children: [
+                  buildRow("Batch ID", data["batch_id"]),
+                  buildRow("Manufacturer", data["manufacturer"]),
+                  buildRow("Manufacturing Date", data["manufacturing_date"]),
+                  buildRow("Expiry Date", data["expiry_date"]),
+                ],
+              ),
+            ),
+
+            SizedBox(height: 20),
+
+            /// 🔗 SUPPLY CHAIN
+            Text(
+              "Supply Chain",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: Colors.black87,
+              ),
+            ),
+
+            SizedBox(height: 10),
+
+            Expanded(
+              child: Container(
+                padding: EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.grey.shade300),
                 ),
-
-                SizedBox(height: 10),
-
-                /// 🔥 Subtitle
-                Text(
-                  valid
-                      ? "Verified on Blockchain"
-                      : "This product may be counterfeit",
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 16,
-                  ),
-                ),
-
-                SizedBox(height: 30),
-
-                /// 📦 DETAILS CARD
-                Container(
-                  margin: EdgeInsets.symmetric(horizontal: 20),
-                  padding: EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.05),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.white12),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-
-                      /// Batch ID
-                      Text(
-                        "Batch ID",
-                        style: TextStyle(
-                          color: Colors.white54,
-                          fontSize: 14,
-                        ),
+                child: ListView.builder(
+                  itemCount: data["chain"].length,
+                  itemBuilder: (context, index) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Row(
+                        children: [
+                          Icon(Icons.circle, size: 8, color: Colors.grey),
+                          SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              data["chain"][index],
+                              style: TextStyle(color: Colors.black87),
+                            ),
+                          ),
+                        ],
                       ),
-                      SizedBox(height: 5),
-                      Text(
-                        widget.data["batchId"] ?? "N/A",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                        ),
-                      ),
-
-                      SizedBox(height: 20),
-
-                      /// Supply Chain
-                      Text(
-                        "Supply Chain",
-                        style: TextStyle(
-                          color: Colors.white54,
-                          fontSize: 14,
-                        ),
-                      ),
-                      SizedBox(height: 10),
-
-                      Column(
-                        children: (widget.data["chain"] ?? [])
-                            .map<Widget>((e) => Row(
-                                  children: [
-                                    Icon(Icons.circle,
-                                        size: 8, color: mainColor),
-                                    SizedBox(width: 10),
-                                    Expanded(
-                                      child: Text(
-                                        e,
-                                        style: TextStyle(
-                                          color: Colors.white70,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ))
-                            .toList(),
-                      ),
-                    ],
-                  ),
-                ),
-
-                SizedBox(height: 30),
-
-                /// 🔙 BACK BUTTON
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context);
+                    );
                   },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: mainColor,
-                    padding:
-                        EdgeInsets.symmetric(horizontal: 30, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
-                  child: Text("Scan Again"),
                 ),
-              ],
-            );
-          },
+              ),
+            ),
+
+            SizedBox(height: 15),
+
+            /// 🔁 BUTTON
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black,
+                  padding: EdgeInsets.symmetric(vertical: 14),
+                ),
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+                child: Text(
+                  "Scan Again",
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            )
+          ],
         ),
+      ),
+    );
+  }
+
+  Widget buildRow(String title, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(title, style: TextStyle(color: Colors.grey[600])),
+          Text(
+            value ?? "-",
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: Colors.black,
+            ),
+          ),
+        ],
       ),
     );
   }
