@@ -3,74 +3,77 @@ import json
 from web3 import Web3
 from dotenv import load_dotenv
 
-# 1. Load the variables from your .env file
 load_dotenv()
 
-RPC_URL = os.getenv("RPC_URL")
-PRIVATE_KEY = os.getenv("PRIVATE_KEY")
-CONTRACT_ADDRESS = os.getenv("CONTRACT_ADDRESS")
+class BlockchainService:
+    def __init__(self):
+        self.w3 = Web3(Web3.HTTPProvider(os.getenv("RPC_URL")))
+        abi_path = os.path.join(os.path.dirname(__file__), "../smart-contract/abi.json")
+        with open(abi_path, "r") as file:
+            contract_abi = json.load(file)
+            
+        self.contract = self.w3.eth.contract(
+            address=os.getenv("CONTRACT_ADDRESS"), 
+            abi=contract_abi
+        )
+        self.admin_private_key = os.getenv("PRIVATE_KEY")
 
-# 2. Connect to Ganache
-w3 = Web3(Web3.HTTPProvider(RPC_URL))
+    def _send_transaction(self, func_call, private_key, gas_limit=2000000):
+        account = self.w3.eth.account.from_key(private_key)
+        tx = func_call.build_transaction({
+            'from': account.address,
+            'nonce': self.w3.eth.get_transaction_count(account.address),
+            'gas': gas_limit,
+            'gasPrice': self.w3.to_wei('20', 'gwei'),
+            'chainId': 1337 
+        })
+        signed_tx = self.w3.eth.account.sign_transaction(tx, private_key=private_key)
+        tx_hash = self.w3.eth.send_raw_transaction(signed_tx.raw_transaction)
+        return self.w3.eth.wait_for_transaction_receipt(tx_hash)
 
-# 3. Load your Contract ABI 
-# (Make sure the path matches where you saved abi.json from Remix)
-with open("../smart-contract/abi.json", "r") as file:
-    contract_abi = json.load(file)
+    # --- BATCH LIFECYCLE ---
+    def create_batch(self, b_id, mfg, exp, ipfs, qty):
+        func = self.contract.functions.createBatch(b_id, mfg, exp, ipfs, qty)
+        return self._send_transaction(func, self.admin_private_key)
 
-# 4. Set up the contract and account instances
-contract = w3.eth.contract(address=CONTRACT_ADDRESS, abi=contract_abi)
-account = w3.eth.account.from_key(PRIVATE_KEY)
+    def split_batch(self, p_id, n_id, to, qty, p_key):
+        func = self.contract.functions.splitBatch(p_id, n_id, to, qty)
+        return self._send_transaction(func, p_key)
 
-# ==========================================
-# 🚀 BLOCKCHAIN FUNCTIONS
-# ==========================================
+    def transfer_batch(self, b_id, to, p_key):
+        func = self.contract.functions.transferBatch(b_id, to)
+        return self._send_transaction(func, p_key)
 
-def create_batch(batch_id: str, mfg_date: str, exp_date: str, ipfs_hash: str, quantity: int) -> str:
-    """Sends a transaction to the blockchain to create a new batch."""
-    
-    # 1. Get the nonce (transaction count) for your account to prevent double-spending
-    nonce = w3.eth.get_transaction_count(account.address)
+    def accept_batch(self, b_id, p_key):
+        func = self.contract.functions.acceptBatch(b_id)
+        return self._send_transaction(func, p_key, gas_limit=500000)
 
-    # 2. Build the transaction
-    tx = contract.functions.createBatch(
-        batch_id,
-        mfg_date,
-        exp_date,
-        ipfs_hash,
-        quantity
-    ).build_transaction({
-        'chainId': 1337, # 1337 is the default chain ID for Ganache
-        'gas': 2000000,
-        'maxFeePerGas': w3.eth.gas_price,
-        'maxPriorityFeePerGas': w3.eth.max_priority_fee,
-        'nonce': nonce,
-    })
+    def transfer_to_pharmacy(self, b_id, phar_addr, p_key):
+        func = self.contract.functions.transferToPharmacy(b_id, phar_addr)
+        return self._send_transaction(func, p_key)
 
-    # 3. Sign the transaction with your Private Key
-    signed_tx = w3.eth.account.sign_transaction(tx, private_key=PRIVATE_KEY)
+    def accept_at_pharmacy(self, b_id, p_key):
+        func = self.contract.functions.acceptAtPharmacy(b_id)
+        return self._send_transaction(func, p_key)
 
-    # 4. Send it to Ganache!
-    tx_hash = w3.eth.send_raw_transaction(signed_tx.raw_transaction)
+    def sell_units(self, b_id, qty, p_key):
+        func = self.contract.functions.sellUnits(b_id, qty)
+        return self._send_transaction(func, p_key, gas_limit=300000)
 
-    # Return the transaction hash as a hex string
-    return tx_hash.hex()
+    # --- GOVERNANCE ---
+    def propose_company(self, cand_addr, role_idx, p_key):
+        func = self.contract.functions.proposeCompany(cand_addr, role_idx)
+        return self._send_transaction(func, p_key)
 
+    def vote_proposal(self, prop_id, p_key):
+        func = self.contract.functions.vote(prop_id)
+        return self._send_transaction(func, p_key)
 
-# --- Other functions (stubs for now so your API doesn't break) ---
+    # --- READ ONLY ---
+    def get_batch(self, b_id):
+        return self.contract.functions.getBatch(b_id).call()
 
-def split_batch(parent_id, new_id, to_address, quantity):
-    pass # Add similar build/sign/send logic here later
+    def get_role(self, addr):
+        return self.contract.functions.roles(addr).call()
 
-def transfer_batch(batch_id, to_address):
-    pass
-
-def accept_batch(batch_id):
-    pass
-
-def sell_units(batch_id, quantity):
-    pass
-
-def get_batch(batch_id):
-    """Reads data from the blockchain (No gas fee, no signing required!)"""
-    return contract.functions.getBatch(batch_id).call()
+blockchain = BlockchainService()
