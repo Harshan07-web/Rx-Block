@@ -13,3 +13,6 @@ class DrugBatch(Base):
     expiry_date = Column(String)
     current_owner = Column(String, default="Manufacturer")
     status = Column(String, default="Available")
+    from sqlalchemy.types import JSON
+    side_effects = Column(JSON)
+    allergies = Column(JSON)
