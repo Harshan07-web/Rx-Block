@@ -16,7 +16,7 @@ with open("smart-contract/abi.json") as f:
     abi = json.load(f)
 
 # 📍 Replace with your deployed contract address
-CONTRACT_ADDRESS = "PASTE_YOUR_CONTRACT_ADDRESS_HERE"
+CONTRACT_ADDRESS = "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4"
 
 contract = w3.eth.contract(address=CONTRACT_ADDRESS, abi=abi)
 
