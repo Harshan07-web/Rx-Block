@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:rx_block/services/batch_services.dart';
 import '../profile/profile_page.dart';
 import '../history/history_page.dart';
 import '../scanner/scanner_page.dart';
@@ -10,9 +11,7 @@ class HomePage extends StatefulWidget {
   _HomePageState createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage>
-    with TickerProviderStateMixin {
-
+class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   late AnimationController glowController;
   late AnimationController textController;
 
@@ -20,13 +19,15 @@ class _HomePageState extends State<HomePage>
   void initState() {
     super.initState();
 
-    glowController =
-        AnimationController(vsync: this, duration: Duration(seconds: 2))
-          ..repeat(reverse: true);
+    glowController = AnimationController(
+      vsync: this,
+      duration: Duration(seconds: 2),
+    )..repeat(reverse: true);
 
-    textController =
-        AnimationController(vsync: this, duration: Duration(seconds: 2))
-          ..forward();
+    textController = AnimationController(
+      vsync: this,
+      duration: Duration(seconds: 2),
+    )..forward();
   }
 
   @override
@@ -37,15 +38,11 @@ class _HomePageState extends State<HomePage>
 
       body: Stack(
         children: [
-
           /// 🌌 BACKGROUND GRADIENT
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [
-                  Color(0xFF070B1F),
-                  Color(0xFF0F1A3C),
-                ],
+                colors: [Color(0xFF070B1F), Color(0xFF0F1A3C)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -70,7 +67,6 @@ class _HomePageState extends State<HomePage>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-
                   /// RX-BLOCK TEXT
                   ShaderMask(
                     shaderCallback: (bounds) => LinearGradient(
@@ -92,10 +88,30 @@ class _HomePageState extends State<HomePage>
                   /// TAGLINE
                   Text(
                     "TRUST IN EVERY DOSE",
-                    style: TextStyle(
-                      color: Colors.white70,
-                      letterSpacing: 3,
+                    style: TextStyle(color: Colors.white70, letterSpacing: 3),
+                  ),
+
+                  SizedBox(height: 20),
+
+                  /// TEST CONNECTION BUTTON
+                  ElevatedButton(
+                    onPressed: () async {
+                      print("🚀 BUTTON CLICKED: Sending request to backend...");
+                      try {
+                        final response = await BatchServices.getBatch("B1-002");
+                        print("✅ SUCCESS! Data received: ${response.body}");
+                      } catch (e) {
+                        print("❌ FAILED: $e");
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blueAccent,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
                     ),
+                    child: const Text('Test Connection'),
                   ),
                 ],
               ),
@@ -115,23 +131,29 @@ class _HomePageState extends State<HomePage>
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.blueAccent
-                              .withOpacity(0.6 * glowController.value),
+                          color: Colors.blueAccent.withOpacity(
+                            0.6 * glowController.value,
+                          ),
                           blurRadius: 30,
                           spreadRadius: 5,
-                        )
+                        ),
                       ],
                     ),
                     child: GestureDetector(
                       onTap: () {
-                        Navigator.push(context,
-                            MaterialPageRoute(builder: (_) => ScannerPage()));
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => ScannerPage()),
+                        );
                       },
                       child: CircleAvatar(
                         radius: 38,
                         backgroundColor: Colors.blueAccent,
-                        child: Icon(Icons.qr_code_scanner,
-                            size: 30, color: Colors.white),
+                        child: Icon(
+                          Icons.qr_code_scanner,
+                          size: 30,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   );
@@ -145,8 +167,10 @@ class _HomePageState extends State<HomePage>
             bottom: 30,
             right: 20,
             child: _glassButton(Icons.person, () {
-              Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => ProfilePage()));
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => ProfilePage()),
+              );
             }),
           ),
 
@@ -204,8 +228,10 @@ class _HomePageState extends State<HomePage>
               leading: Icon(Icons.history, color: Colors.white),
               title: Text("History", style: TextStyle(color: Colors.white)),
               onTap: () {
-                Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => HistoryPage()));
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => HistoryPage()),
+                );
               },
             ),
 
@@ -214,8 +240,10 @@ class _HomePageState extends State<HomePage>
               leading: Icon(Icons.logout, color: Colors.red),
               title: Text("Logout", style: TextStyle(color: Colors.red)),
               onTap: () {
-                Navigator.pushReplacement(context,
-                    MaterialPageRoute(builder: (_) => LoginPage()));
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => LoginPage()),
+                );
               },
             ),
           ],
@@ -227,22 +255,25 @@ class _HomePageState extends State<HomePage>
   /// ⚙ SETTINGS MODAL
   void _showSettings() {
     showModalBottomSheet(
-        context: context,
-        backgroundColor: Colors.transparent,
-        builder: (_) {
-          return Container(
-            decoration: BoxDecoration(
-              color: Color(0xFF0F1A3C),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            child: ListTile(
-              title: Text("Logout", style: TextStyle(color: Colors.red)),
-              onTap: () {
-                Navigator.pushReplacement(context,
-                    MaterialPageRoute(builder: (_) => LoginPage()));
-              },
-            ),
-          );
-        });
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) {
+        return Container(
+          decoration: BoxDecoration(
+            color: Color(0xFF0F1A3C),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: ListTile(
+            title: Text("Logout", style: TextStyle(color: Colors.red)),
+            onTap: () {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => LoginPage()),
+              );
+            },
+          ),
+        );
+      },
+    );
   }
 }
