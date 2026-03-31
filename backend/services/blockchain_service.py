@@ -40,10 +40,6 @@ class BlockchainService:
         tx_hash = self.w3.eth.send_raw_transaction(signed_tx.raw_transaction)
         return self.w3.eth.wait_for_transaction_receipt(tx_hash)
 
-    # ==========================================
-    # 🚀 CORE SUPPLY CHAIN FUNCTIONS
-    # ==========================================
-
     def create_batch(self, batch_id, mfg_date, exp_date, ipfs_hash, quantity):
         func = self.contract.functions.createBatch(batch_id, mfg_date, exp_date, ipfs_hash, quantity)
         return self._send_transaction(func, self.admin_private_key)
@@ -60,9 +56,6 @@ class BlockchainService:
         func = self.contract.functions.splitBatch(parent_id, new_id, to_address, quantity)
         return self._send_transaction(func, private_key)
 
-    # ==========================================
-    # 🏥 PHARMACY SPECIFIC FUNCTIONS
-    # ==========================================
 
     def transfer_to_pharmacy(self, batch_id, pharmacy_address, private_key):
         func = self.contract.functions.transferToPharmacy(batch_id, pharmacy_address)
@@ -76,9 +69,6 @@ class BlockchainService:
         func = self.contract.functions.sellUnits(batch_id, quantity)
         return self._send_transaction(func, private_key, gas_limit=300000)
 
-    # ==========================================
-    # ⚖️ GOVERNANCE (VOTING) FUNCTIONS
-    # ==========================================
 
     def propose_company(self, candidate_address, role_index, private_key):
         func = self.contract.functions.proposeCompany(candidate_address, role_index)
@@ -88,9 +78,6 @@ class BlockchainService:
         func = self.contract.functions.vote(proposal_id)
         return self._send_transaction(func, private_key)
 
-    # ==========================================
-    # 🔍 READ-ONLY (NO GAS REQUIRED)
-    # ==========================================
 
     def get_batch(self, batch_id):
         """Reads a medicine batch's current status and history"""

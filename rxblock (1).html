@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -495,8 +495,8 @@ kbd{background:var(--faint);border:1px solid var(--border2);border-radius:4px;pa
     </div>
 
     <div class="verify-tabs">
-      <button type="button" class="vtab active" onclick="switchVerify('text',this)">🔤 Enter Batch ID</button>
-      <button type="button" class="vtab" onclick="switchVerify('qr',this)">📷 Upload QR Code</button>
+      <button type="button" class="vtab active" onclick="switchVerify('text',this)">Enter Batch ID</button>
+      <button type="button" class="vtab" onclick="switchVerify('qr',this)">Upload QR Code</button>
     </div>
 
     <div class="vpanel active" id="vp-text">
@@ -605,29 +605,29 @@ kbd{background:var(--faint);border:1px solid var(--border2);border-radius:4px;pa
   <div class="admin-layout">
     <aside class="sidebar">
       <div class="sb-lbl">Manufacturer</div>
-      <button type="button" class="sb-item active" onclick="showPanel('create',this)"><span class="sb-icon">➕</span>Create Batch</button>
+      <button type="button" class="sb-item active" onclick="showPanel('create',this)"><span class="sb-icon"></span>Create Batch</button>
       <div class="sb-lbl">Supply Chain</div>
-      <button type="button" class="sb-item" onclick="showPanel('transfer',this)"><span class="sb-icon">🔀</span>Transfer</button>
-      <button type="button" class="sb-item" onclick="showPanel('accept',this)"><span class="sb-icon">✅</span>Accept<span class="sb-badge">!</span></button>
-      <button type="button" class="sb-item" onclick="showPanel('split',this)"><span class="sb-icon">✂️</span>Split Batch</button>
+      <button type="button" class="sb-item" onclick="showPanel('transfer',this)"><span class="sb-icon"></span>Transfer</button>
+      <button type="button" class="sb-item" onclick="showPanel('accept',this)"><span class="sb-icon"></span>Accept<span class="sb-badge">!</span></button>
+      <button type="button" class="sb-item" onclick="showPanel('split',this)"><span class="sb-icon"></span>Split Batch</button>
       
-      <button type="button" class="sb-item" onclick="showPanel('transfer-pharmacy',this)"><span class="sb-icon">🏥</span>To Pharmacy</button>
-      <button type="button" class="sb-item" onclick="showPanel('pharmacy-accept',this)"><span class="sb-icon">✅</span>Pharm Accept<span class="sb-badge">!</span></button>
+      <button type="button" class="sb-item" onclick="showPanel('transfer-pharmacy',this)"><span class="sb-icon"></span>To Pharmacy</button>
+      <button type="button" class="sb-item" onclick="showPanel('pharmacy-accept',this)"><span class="sb-icon"></span>Pharm Accept<span class="sb-badge">!</span></button>
       
-      <button type="button" class="sb-item" onclick="showPanel('sell',this)"><span class="sb-icon">💊</span>Sell Units</button>
+      <button type="button" class="sb-item" onclick="showPanel('sell',this)"><span class="sb-icon"></span>Sell Units</button>
       <div class="sb-lbl">Medicine Info</div>
-      <button type="button" class="sb-item" onclick="showPanel('medinfo',this)"><span class="sb-icon">🧬</span>Update Med Info</button>
+      <button type="button" class="sb-item" onclick="showPanel('medinfo',this)"><span class="sb-icon"></span>Update Med Info</button>
       <div class="sb-lbl">Governance</div>
-      <button type="button" class="sb-item" onclick="showPanel('propose',this)"><span class="sb-icon">📋</span>Propose Company</button>
-      <button type="button" class="sb-item" onclick="showPanel('vote',this)"><span class="sb-icon">🗳</span>Vote</button>
-      <button type="button" class="sb-item" onclick="showPanel('role',this)"><span class="sb-icon">🔍</span>Check Role</button>
+      <button type="button" class="sb-item" onclick="showPanel('propose',this)"><span class="sb-icon"></span>Propose Company</button>
+      <button type="button" class="sb-item" onclick="showPanel('vote',this)"><span class="sb-icon"></span>Vote</button>
+      <button type="button" class="sb-item" onclick="showPanel('role',this)"><span class="sb-icon"></span>Check Role</button>
       <div class="sb-lbl">Tools</div>
-      <button type="button" class="sb-item" onclick="showPanel('dashboard',this)"><span class="sb-icon">📊</span>Dashboard</button>
+      <button type="button" class="sb-item" onclick="showPanel('dashboard',this)"><span class="sb-icon"></span>Dashboard</button>
     </aside>
 
     <main class="admin-main">
       <div class="cfg-bar">
-        <span>⚙️</span><span>API Base URL</span>
+        <span></span><span>API Base URL</span>
         <input type="text" id="api-url" value="http://192.168.20.76:8000"/>
       </div>
 
@@ -967,7 +967,24 @@ function toggleTheme() {
 }
 
 /* ── NAV ── */
+let isAdminUnlocked = false; // Keep track if they already logged in
+
 function switchPage(p, btn) {
+  // 🚀 NEW: Admin Security Check
+  if (p === 'admin' && !isAdminUnlocked) {
+    const password = prompt("Enter Admin Password to access the dashboard:");
+    
+    // Hardcoded hackathon password! Change "admin123" to whatever you want.
+    if (password === "admin123") {
+      isAdminUnlocked = true;
+      toast('Admin Access Granted!');
+    } else {
+      toast('Access Denied: Incorrect password.', 'er');
+      return; // Stop them from entering the page!
+    }
+  }
+
+  // If they pass, or if it's just the Public page, let them switch normally
   document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(x=>x.classList.remove('active'));
   document.getElementById('page-'+p).classList.add('active');
