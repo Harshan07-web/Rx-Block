@@ -12,7 +12,7 @@ app = FastAPI(title="Pharma Supply Chain")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  
-    allow_credentials=True,
+    allow_credentials=False,  # <--- THIS MUST BE FALSE!
     allow_methods=["*"],
     allow_headers=["*"],
 )

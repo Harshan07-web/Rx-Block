@@ -184,6 +184,39 @@ async def get_user_role(address: str):
     role_idx = blockchain.get_role(address)
     return {"address": address, "role": ROLE_MAP[role_idx]}
 
+# Add this under your other Transfer/Accept routes
+
+@router.post("/transfer-to-pharmacy")
+async def to_pharmacy(batch_id: str, pharmacy_address: str, x_private_key: str = Header(...)):
+    """Distributor sends a split batch specifically to a Pharmacy"""
+    try:
+        receipt = blockchain.transfer_to_pharmacy(batch_id, pharmacy_address, x_private_key)
+        return {"status": "Transfer to Pharmacy Initiated", "tx_hash": receipt.transactionHash.hex()}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/pharmacy-accept")
+async def pharmacy_accept(batch_id: str, x_private_key: str = Header(...)):
+    """Pharmacy physically receives and accepts the batch"""
+    try:
+        receipt = blockchain.accept_at_pharmacy(batch_id, x_private_key)
+        return {"status": "Accepted at Pharmacy", "tx_hash": receipt.transactionHash.hex()}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/sell")
+async def sell_units(payload: SellRequest, x_private_key: str = Header(...)):
+    """Pharmacy scans a box at the cash register and marks it as SOLD"""
+    try:
+        receipt = blockchain.sell_units(payload.batch_id, payload.quantity, x_private_key)
+        
+        # Optional: You can also update the SQLite DB here if you are tracking stock locally!
+        # db.query(DrugBatch).filter(...).update({...})
+        
+        return {"status": "Sale Recorded", "tx_hash": receipt.transactionHash.hex()}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 # -----------------------------
 # VIEW ROUTES (MUST BE ABSOLUTELY LAST)
 # -----------------------------
