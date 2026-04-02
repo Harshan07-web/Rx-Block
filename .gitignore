@@ -6,4 +6,5 @@ build/
 dist/
 .env
 .vscode
-__pycache__
+backend/rx_block.db
+__pycache__/
