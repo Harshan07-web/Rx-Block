@@ -4,3 +4,6 @@ frontend/
 frontend/rx_block/web.zip
 build/
 dist/
+.env
+.vscode
+__pycache__

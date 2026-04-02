@@ -10,15 +10,10 @@ def generate_secure_hash(manufacturer: str, mfg_date: str) -> str:
 def generate_qr_image(batch_id: str, unique_hash: str) -> io.BytesIO:
     """Generates a QR code image and returns it as a byte stream."""
     
-    # ---------------------------------------------------------
-    # 🚀 NEW: THE "REAL WORLD" URL FIX
-    # Change this to your live domain name when you deploy!
-    # For local VS Code Live Server, it is usually port 5500 or 5501.
     base_url = "http://192.168.20.76:5500/rxblock (1).html" 
     
     # Embed the URL with the batch_id attached to the end
     qr_data = f"{base_url}?batch_id={batch_id}"
-    # ---------------------------------------------------------
     
     qr = qrcode.QRCode(
         version=1,

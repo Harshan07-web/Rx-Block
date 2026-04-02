@@ -1149,8 +1149,40 @@ function renderResult(id, b, m) {
 
   document.getElementById('res-mfg').textContent = b.mfgDate || '—';
   document.getElementById('res-exp').textContent  = b.expDate  || '—';
-  document.getElementById('res-owner').textContent   = b.current_owner || '—';
-  document.getElementById('res-pending').textContent = b.pending_owner || 'None';
+// 🚀 NEW: Expanded Friendly Name Lookup Table
+  // Make sure to replace these fake 0x... addresses with your actual Ganache wallets!
+  const knownAddresses = {
+      // 🏥 Pharmacies
+      "0xcf1c29507ff3d3dfc630fafcffadf64a334e031f": "City Care Pharmacy",
+      "0xCF1c29507FF3d3Dfc630fAFCFfAdf64a334e031f": "Apollo Medicals",
+      "0xaaaa22223333444455556666777788889999bbbb": "Wellness Plus Pharmacy",
+
+      // 🚚 Distributors
+      "0x2222333344445555666677778888999900001111": "Global Pharma Distributors",
+      "0xbbbb33334444555566667777888899990000cccc": "MediChain Logistics",
+      "0x1765A548Ae088673e753668780b0FDCA40491B9D": "FastTrack Medical Supply",
+
+      // 🏭 Manufacturers
+      "0x22403906982128cFb1cFaD406ea15743e5aa6Be0": "PharmaCorp Ltd.",
+      "0xdddd55556666777788889999000011112222eeee": "Sun Pharma Industries",
+      
+      // 🛡️ Network Validators
+      "0xCCc3B1F77FFD894E7db3d293C3CfA2E09a3D78F7": "Gov Health Ministry Node"
+  };
+
+  // Format Current Owner
+  let cOwner = b.current_owner || '—';
+  if (cOwner !== '—' && knownAddresses[cOwner.toLowerCase()]) {
+      cOwner = knownAddresses[cOwner.toLowerCase()] + " ✓"; 
+  }
+  document.getElementById('res-owner').textContent = cOwner;
+
+  // Format Pending Owner
+  let pOwner = b.pending_owner || 'None';
+  if (pOwner !== 'None' && knownAddresses[pOwner.toLowerCase()]) {
+      pOwner = knownAddresses[pOwner.toLowerCase()];
+  }
+  document.getElementById('res-pending').textContent = pOwner;
 
   const tot = b.total_quantity ?? 0;
   const sol = b.sold_quantity  ?? 0;
