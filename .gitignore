@@ -5,6 +5,7 @@ frontend/rx_block/web.zip
 build/
 dist/
 .env
-.vscode
+.vscode/
 backend/rx_block.db
 __pycache__/
+backend\config\__pycache__
