@@ -1,11 +1,11 @@
-/* ── CONFIG ── */
+/* CONFIG  */
 const API = () => document.getElementById('api-url').value.replace(/\/$/,'');
 
-/* ── TOAST ── */
+/* TOAST  */
 function toast(msg, type='ok') {
   const el = document.createElement('div');
   el.className = `toast ${type}`;
-  el.innerHTML = `<span>${type==='ok'?'✅':'❌'}</span><span>${msg}</span>`;
+  el.innerHTML = `<span style="font-size:.9rem;font-weight:700">${type==='ok'?'✓':'✕'}</span><span>${msg}</span>`;
   document.getElementById('toasts').appendChild(el);
   setTimeout(()=>{el.style.opacity='0';el.style.transform='translateX(10px)';el.style.transition='all .4s';},3500);
   setTimeout(()=>el.remove(),4000);
@@ -17,7 +17,7 @@ function showR(id, data, err=false) {
   el.textContent = typeof data==='string'?data:JSON.stringify(data,null,2);
 }
 
-/* ── THEME ── */
+/* THEME  */
 function toggleTheme() {
   const h = document.documentElement;
   const dark = h.getAttribute('data-theme')==='dark';
@@ -25,7 +25,7 @@ function toggleTheme() {
   localStorage.setItem('rxbt', dark?'light':'dark');
 }
 
-/* ── AUTHENTICATION & RBAC ── */
+/* AUTHENTICATION & RBAC  */
 let currentUser = null; 
 let currentUsername = "";
 
@@ -43,6 +43,23 @@ function switchAuthTab(tab, btn) {
     
     btn.parentElement.querySelectorAll('.vtab').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
+}
+
+// Toggle the Global Menu Sidebar
+function toggleGlobalMenu() {
+    const menu = document.getElementById('global-menu');
+    const overlay = document.getElementById('global-overlay');
+    menu.classList.toggle('show');
+    overlay.classList.toggle('show');
+}
+
+// Click Top-Right Username to go to Profile/Admin
+function goToProfile() {
+    if (currentUser === 'patient') {
+        switchPage('stats');
+    } else if (currentUser) {
+        switchPage('admin');
+    }
 }
 
 function handlePatientRegister() {
@@ -88,35 +105,37 @@ function executeLogin(role, username) {
     const guestToast = document.getElementById('guest-toast');
     if(guestToast) guestToast.style.display = 'none';
     
+    //  SHOW Hamburger Menu & Profile Name, HIDE Sign In
+    document.getElementById('nav-hamburger').style.display = 'flex';
     document.getElementById('nav-login-btn').style.display = 'none';
-    document.getElementById('nav-user-menu').style.display = 'block';
-    document.getElementById('menu-username').textContent = username;
+    document.getElementById('nav-user-container').style.display = 'flex';
+    document.getElementById('top-username').textContent = username;
     
-    // Hide patient items if Chain Member
+    // Show/Hide specific menu items based on role
     document.querySelectorAll('.pt-only').forEach(el => {
         el.style.display = (role === 'patient') ? 'block' : 'none';
     });
     
     if (role !== 'patient') {
-        document.getElementById('nav-admin-tab').style.display = 'block';
+        document.getElementById('gm-admin-btn').style.display = 'block';
+        document.getElementById('gm-admin-div').style.display = 'block';
         toast('Enterprise Access Granted');
         
-        // 🚀 ROLE-BASED FILTERING FOR ADMIN SIDEBAR
+        // Role-based admin sidebar
         let firstVisiblePanel = null;
         document.querySelectorAll('[data-roles]').forEach(el => {
             const allowedRoles = el.getAttribute('data-roles').split(',');
             if (allowedRoles.includes(role) || allowedRoles.includes('all')) {
-                el.style.display = 'flex'; // Show allowed items
+                el.style.display = 'flex'; 
                 if(el.classList.contains('sb-item') && !firstVisiblePanel) firstVisiblePanel = el;
             } else {
-                el.style.display = 'none'; // Hide forbidden items
+                el.style.display = 'none'; 
             }
         });
-        
-        // Auto-select the first visible tab
         if(firstVisiblePanel) firstVisiblePanel.click();
-
     } else {
+        document.getElementById('gm-admin-btn').style.display = 'none';
+        document.getElementById('gm-admin-div').style.display = 'none';
         toast('Welcome back, ' + username);
     }
 }
@@ -125,11 +144,18 @@ function logoutUser() {
     currentUser = null;
     currentUsername = "";
     
+    //  HIDE Hamburger Menu & Profile, SHOW Sign In
+    document.getElementById('nav-hamburger').style.display = 'none';
     document.getElementById('nav-login-btn').style.display = 'block';
-    document.getElementById('nav-user-menu').style.display = 'none';
-    document.getElementById('nav-admin-tab').style.display = 'none';
-    document.getElementById('tab-verify').click(); // Kick to public page
+    document.getElementById('nav-user-container').style.display = 'none';
+    document.getElementById('gm-admin-btn').style.display = 'none';
+    document.getElementById('gm-admin-div').style.display = 'none';
     
+    // Force close the global menu if it's open during logout
+    document.getElementById('global-menu').classList.remove('show');
+    document.getElementById('global-overlay').classList.remove('show');
+    
+    switchPage('public');
     toast('Logged out successfully');
 }
 
@@ -138,13 +164,6 @@ function switchPage(p, btn) {
       toast('Access Denied: Enterprise Account Required.', 'er');
       document.getElementById('auth-modal').classList.add('show');
       return; 
-  }
-
-  // Hide the nav dropdown if they are going to the admin page
-  if (p === 'admin') {
-      document.getElementById('nav-user-menu').style.display = 'none';
-  } else if (currentUser) {
-      document.getElementById('nav-user-menu').style.display = 'block';
   }
 
   document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
@@ -168,7 +187,7 @@ function switchVerify(t, btn) {
   document.getElementById('vp-'+t).classList.add('active');
 }
 
-/* ── QR DECODE ── */
+/* QR DECODE  */
 let qrBatchId = null;
 
 function handleQRDrop(e) {
@@ -240,7 +259,8 @@ function handleQRFile(file) {
 function lookupFromQR() {
   if (!qrBatchId) { toast('No batch ID decoded yet', 'er'); return; }
   document.getElementById('pub-id').value = qrBatchId;
-  switchVerify('text', document.querySelector('.vtab'));
+  const firstVerifyTab = document.querySelector('#vp-text')?.closest('.vpanel')?.parentElement?.querySelector('.vtab');
+  switchVerify('text', firstVerifyTab || document.querySelector('.verify-tabs .vtab'));
   lookupBatch();
 }
 
@@ -249,9 +269,12 @@ function clearQR() {
   document.getElementById('qr-decoded').textContent = '—';
   document.getElementById('qr-decoded').style.color = '';
   qrBatchId = null;
+  // 🚀 Slide the UI back to the center
+  document.getElementById('public-inner').classList.remove('results-active');
+  document.getElementById('result-card').classList.remove('show');
 }
 
-/* ── PUBLIC LOOKUP ── */
+/* PUBLIC LOOKUP WITH MOCK DATABASE 🚀  */
 const STO = ['CREATED','IN_DISTRIBUTION','AT_DISTRIBUTOR','AT_PHARMACY','SOLD'];
 
 async function lookupBatch() {
@@ -262,17 +285,56 @@ async function lookupBatch() {
   document.getElementById('result-card').classList.remove('show');
   document.getElementById('pub-loader').classList.add('show');
 
+  // 🚀 INSTANT LAYOUT SHIFT (Triggers the CSS animation)
+  document.getElementById('public-inner').classList.add('results-active');
+
+  // 🚀 1. THE MOCK DATABASE (No Backend Required for Demo IDs!)
+  const mockDatabase = {
+      "TEST-001": {
+          bd: { id: "TEST-001", status: "SOLD", is_authentic: true, mfgDate: "2025-01-10", expDate: "2027-01-10", current_owner: "0xcf1c29507ff3d3dfc630fafcffadf64a334e031f", pending_owner: "None", total_quantity: 1000, sold_quantity: 1000 },
+          md: { batch_id: "TEST-001", drug_name: "Amoxicillin 500mg", manufacturer: "PharmaCorp Ltd.", side_effects: ["Nausea", "Diarrhea"], allergies: ["Penicillin"] }
+      },
+      "TEST-002": {
+          bd: { id: "TEST-002", status: "IN_DISTRIBUTION", is_authentic: true, mfgDate: "2025-03-01", expDate: "2026-03-01", current_owner: "0x2222333344445555666677778888999900001111", pending_owner: "None", total_quantity: 5000, sold_quantity: 0 },
+          md: { batch_id: "TEST-002", drug_name: "Cetirizine 10mg", manufacturer: "Sun Pharma Industries", side_effects: ["Drowsiness", "Dry Mouth"], allergies: ["Antihistamines"] }
+      },
+      "TEST-FAKE": {
+          bd: { id: "TEST-FAKE", status: "UNKNOWN", is_authentic: false, mfgDate: "—", expDate: "—", current_owner: "0x0000000000000000000000000000000000000000", pending_owner: "None", total_quantity: 0, sold_quantity: 0 },
+          md: { batch_id: "TEST-FAKE", drug_name: "Unknown Substance", manufacturer: "Unknown", side_effects: [], allergies: [] }
+      },
+      "TEST-DOLO": {
+          bd: { id: "TEST-DOLO", status: "AT_PHARMACY", is_authentic: true, mfgDate: "2025-02-15", expDate: "2028-02-15", current_owner: "0xcf1c29507ff3d3dfc630fafcffadf64a334e031f", pending_owner: "None", total_quantity: 1000, sold_quantity: 250 },
+          md: { batch_id: "TEST-DOLO", drug_name: "Dolo 650", manufacturer: "Micro Labs", side_effects: ["Nausea", "Liver Warning"], allergies: ["Paracetamol"] }
+      }
+  };
+
+  // 🚀 2. INTERCEPT MOCK CALLS
+  if (mockDatabase[id.toUpperCase()]) {
+      setTimeout(() => {
+          renderResult(id.toUpperCase(), mockDatabase[id.toUpperCase()].bd, mockDatabase[id.toUpperCase()].md);
+          document.getElementById('pub-loader').classList.remove('show');
+      }, 600);
+      return; // Stop here, do not hit the real backend
+  }
+
+  // 🚀 3. REAL BACKEND CALL
   try {
     const [bR, mR] = await Promise.allSettled([
       fetch(`${API()}/batch/${encodeURIComponent(id)}`),
       fetch(`${API()}/batch/info/${encodeURIComponent(id)}`)
     ]);
+    
+    if (bR.reason && bR.reason.message.includes("Failed to fetch")) {
+        throw new Error("Backend offline. Use 'TEST-001' to demo.");
+    }
+
     const bd = bR.status==='fulfilled' ? await bR.value.json() : null;
     if (!bd || !bR.value.ok) throw new Error(bd?.detail || 'Batch not found on blockchain');
     const md = mR.status==='fulfilled' && mR.value.ok ? await mR.value.json() : null;
+    
     renderResult(id, bd, md);
   } catch(e) {
-    errEl.textContent = `❌  ${e.message}`;
+    errEl.textContent = `❌ ${e.message}`;
     errEl.classList.add('show');
   } finally {
     document.getElementById('pub-loader').classList.remove('show');
@@ -364,7 +426,7 @@ function renderResult(id, b, m) {
   document.getElementById('result-card').classList.add('show');
 }
 
-/* ── TAGS INPUT ── */
+/* TAGS INPUT  */
 const TS = { se:[], al:[] };
 
 function handleTag(e, k) {
@@ -393,7 +455,7 @@ function clearMed() {
   document.getElementById('mi-resp').classList.remove('show');
 }
 
-/* ── ADMIN CALLS ── */
+/* ADMIN CALLS  */
 async function createBatch() {
   const p = {
     batch_id: document.getElementById('c-id').value.trim(),
@@ -561,7 +623,7 @@ async function dashLookup() {
   }
 }
 
-// 🚀 PROFILE SAVING
+//  PROFILE SAVING
 function saveAllergiesFromPage() {
     const algs = document.getElementById('page-allergies').value.toLowerCase();
     localStorage.setItem('userAllergies', algs);
@@ -580,7 +642,7 @@ async function generateIPFSHash(input) {
     toast('Diagram hashed to IPFS CID format!');
 }
 
-/* ── INIT ── */
+/* INIT  */
 window.addEventListener('DOMContentLoaded', () => {
   const saved=localStorage.getItem('rxbt')||'light';
   document.documentElement.setAttribute('data-theme',saved);

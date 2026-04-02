@@ -1,628 +1,658 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Rx-Block · Pharmaceutical Supply Chain</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Sora:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,700;0,900;1,700&display=swap" rel="stylesheet"/>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rx-Block · Pharmaceutical Supply Chain</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Sora:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,700;0,900;1,700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css">
 
-<link rel="stylesheet" href="style.css">
-
-<script>
-(function(){
-  function tryLoad(urls, i) {
-    if (i >= urls.length) return;
-    var s = document.createElement('script');
-    s.src = urls[i];
-    s.onerror = function(){ tryLoad(urls, i+1); };
-    document.head.appendChild(s);
-  }
-  tryLoad([
-    'https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.min.js',
-    'https://unpkg.com/jsqr@1.4.0/dist/jsQR.js',
-    'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js'
-  ], 0);
-})();
-</script>
+  <script>
+    (function() {
+      function tryLoad(urls, i) {
+        if (i >= urls.length) return;
+        var s = document.createElement('script');
+        s.src = urls[i];
+        s.onerror = function() { tryLoad(urls, i + 1); };
+        document.head.appendChild(s);
+      }
+      tryLoad([
+        'https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.min.js',
+        'https://unpkg.com/jsqr@1.4.0/dist/jsQR.js',
+        'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js'
+      ], 0);
+    })();
+  </script>
 </head>
 <body>
 
-<nav>
-  <div class="nav-left">
-    <div class="logo"><span class="lpulse"></span>Rx-Block</div>
-    <div class="nav-sep"></div>
-    <div class="nav-tabs">
-      <button type="button" class="nav-tab active" id="tab-verify" onclick="switchPage('public',this)">Verify</button>
-      <button type="button" class="nav-tab" id="nav-admin-tab" style="display:none;" onclick="switchPage('admin',this)">Workspace</button>
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+
+  <div class="sidebar-overlay" id="global-overlay" onclick="toggleGlobalMenu()"></div>
+  <div class="global-menu" id="global-menu">
+    <div class="gm-header">
+      <div class="logo"><span class="lpulse"></span>Rx-Block</div>
+      <button class="btn-close-gm" onclick="toggleGlobalMenu()">✕</button>
+    </div>
+    <div class="gm-body">
+      <div class="gm-label">Main</div>
+      <button class="gm-item" onclick="switchPage('public'); toggleGlobalMenu()">🔍 Verify Medicine</button>
+      <button class="gm-item pt-only" onclick="switchPage('stats'); toggleGlobalMenu()">📊 My Health Hub</button>
+      <button class="gm-item pt-only" onclick="alert('Coming Soon: Scan History!'); toggleGlobalMenu()">📋 My Scan History</button>
+      
+      <div class="gm-label">Network</div>
+      <button class="gm-item" onclick="switchPage('companies'); toggleGlobalMenu()">🏢 Verified Companies</button>
+      <button class="gm-item" onclick="alert('Coming Soon: Recall Alerts!'); toggleGlobalMenu()">🚨 Global Recall Alerts</button>
+      
+      <div class="gm-label">Support & Settings</div>
+      <button class="gm-item" onclick="window.open('https://wa.me/917358639093', '_blank')">💬 Ask a Pharmacist</button>
+      <button class="gm-item" onclick="switchPage('settings'); toggleGlobalMenu()">⚙️ Settings</button>
+      
+      <div class="gm-divider" id="gm-admin-div"></div>
+      <button class="gm-item" id="gm-admin-btn" style="color: var(--accent); display:none;" onclick="switchPage('admin'); toggleGlobalMenu()">💼 Enterprise Workspace</button>
     </div>
   </div>
-  
-  <div style="display: flex; align-items: center; gap: 15px;">
-    <button type="button" class="btn btn-sm btn-p" id="nav-login-btn" onclick="document.getElementById('auth-modal').classList.add('show')">Sign In</button>
+
+  <nav style="position: relative; z-index: 100;">
+    <div class="nav-left">
+      <button class="hamburger-btn" id="nav-hamburger" style="display:none;" onclick="toggleGlobalMenu()">☰</button>
+      <div class="logo"><span class="lpulse"></span>Rx-Block</div>
+      
+      <div id="nav-user-container" style="display:none; align-items:center; gap:12px; margin-left: 8px;">
+          <div class="nav-sep" style="display:block; height: 18px; margin: 0 4px;"></div>
+          <button id="nav-user-profile-btn" style="display:flex; align-items:center; gap:6px; border:none; background:transparent; padding:0; cursor:pointer;" onclick="goToProfile()">
+              <span style="font-size: 1.1rem;">👤</span>
+              <span id="top-username" style="font-weight: 600; color: var(--accent); font-family: 'Sora', sans-serif; font-size: 0.9rem;">User</span>
+          </button>
+      </div>
+    </div>
     
-    <div class="user-menu-wrap" id="nav-user-menu" style="display:none;">
-      <button class="btn btn-sm btn-g" style="display:flex; align-items:center; gap:8px; border:none; background:transparent;">
-        <span id="menu-username" style="font-weight: 600; color: var(--accent);">User</span> ▾
-      </button>
-      <div class="dropdown-content">
-        <div class="dd-item pt-only" onclick="switchPage('stats', null)">📊 Profile & Stats</div>
-        <div class="dd-item" onclick="switchPage('companies', null)">🏢 Verified Companies</div>
-        <div class="dd-divider"></div>
-        <div class="dd-item" onclick="switchPage('settings', null)">⚙️ Settings</div>
-      </div>
+    <div style="display: flex; align-items: center;">
+      <button type="button" class="btn btn-sm btn-p" id="nav-login-btn" onclick="document.getElementById('auth-modal').classList.add('show')">Sign In</button>
+    </div>
+  </nav>
+
+  <div class="trust-indicator" style="bottom: 2rem; left: 2rem;">
+    <div style="width: 8px; height: 8px; background: var(--safe); border-radius: 50%; box-shadow: 0 0 10px var(--safe);"></div>
+    <div>
+      <div style="font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px;">Network Status</div>
+      <div style="font-size: 0.8rem; font-weight: 600;">Polygon L2 Online</div>
     </div>
   </div>
-</nav>
 
-<div id="page-public" class="page active">
-  <div class="hero">
-    <div class="hero-badge"><span class="lpulse" style="width:6px;height:6px"></span>Blockchain Verified Network</div>
-    <h1 class="hero-title">Verify your<br/><em>medicine</em> is real.</h1>
-    <p class="hero-sub">Scan or enter a batch ID to verify authenticity, ownership chain, and supply journey — recorded immutably on-chain.</p>
-
-    <div class="verify-tabs">
-      <button type="button" class="vtab active" onclick="switchVerify('text',this)">Enter Batch ID</button>
-      <button type="button" class="vtab" onclick="switchVerify('qr',this)">Upload QR Code</button>
-    </div>
-
-    <div class="vpanel active" id="vp-text">
-      <div class="sbox">
-        <input type="text" id="pub-id" placeholder="e.g. MFG-2025-00142" onkeydown="if(event.key==='Enter')lookupBatch()"/>
-        <button type="button" class="sbtn" onclick="lookupBatch()">Verify →</button>
-      </div>
-    </div>
-
-    <div class="vpanel" id="vp-qr">
-      <canvas id="qr-canvas" style="display:none"></canvas>
-      <div class="drop-zone" id="drop-zone" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleQRDrop(event)">
-        <input type="file" accept="image/*" onchange="handleQRFile(this.files[0])" title=""/>
-        <div class="dz-icon">🔳</div>
-        <div class="dz-label"><strong>Click to upload</strong> or drag &amp; drop a QR image</div>
-        <div class="dz-hint">PNG · JPG · WEBP — decoded automatically via jsQR</div>
-      </div>
-      <div class="qr-preview" id="qr-preview">
-        <div class="qrp-hdr">
-          <span class="qrp-lbl">QR Decoded</span>
-          <button type="button" class="btn btn-sm btn-g" onclick="clearQR()">✕ Clear</button>
+  <div id="page-public" class="page active">
+    <div class="page-public-inner" id="public-inner">
+      
+      <div class="hero">
+        <div class="hero-badge"><span class="lpulse" style="width:6px;height:6px"></span>Blockchain Verified Network</div>
+        <h1 class="hero-title">Verify your<br/><em>medicine</em> is real.</h1>
+        <p class="hero-sub">Scan or enter a batch ID to verify authenticity, ownership chain, and supply journey — recorded immutably on-chain.</p>
+        
+        <div class="verify-tabs">
+          <button type="button" class="vtab active" onclick="switchVerify('text',this)">Enter Batch ID</button>
+          <button type="button" class="vtab" onclick="switchVerify('qr',this)">Upload QR Code</button>
         </div>
-        <div class="qrp-body">
-          <img id="qr-thumb" src="" alt="QR preview"/>
-          <div>
-            <div class="qr-bid" id="qr-decoded">—</div>
-            <button type="button" class="btn btn-sm btn-p" style="margin-top:10px" onclick="lookupFromQR()">Verify this batch →</button>
+        
+        <div class="vpanel active" id="vp-text">
+          <div class="sbox">
+            <input type="text" id="pub-id" placeholder="e.g. MFG-2025-00142" onkeydown="if(event.key==='Enter')lookupBatch()" />
+            <button type="button" class="sbtn" onclick="lookupBatch()">Verify →</button>
+          </div>
+        </div>
+        
+        <div class="vpanel" id="vp-qr">
+          <canvas id="qr-canvas" style="display:none"></canvas>
+          <div class="drop-zone" id="drop-zone" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleQRDrop(event)">
+            <input type="file" accept="image/*" onchange="handleQRFile(this.files[0])" title="" />
+            <div class="dz-icon">🔳</div>
+            <div class="dz-label"><strong>Click to upload</strong> or drag &amp; drop a QR image</div>
+            <div class="dz-hint">PNG · JPG · WEBP — decoded automatically via jsQR</div>
+          </div>
+          <div class="qr-preview" id="qr-preview">
+            <div class="qrp-hdr">
+              <span class="qrp-lbl">QR Decoded</span>
+              <button type="button" class="btn btn-sm btn-g" onclick="clearQR()">✕ Clear</button>
+            </div>
+            <div class="qrp-body">
+              <img id="qr-thumb" src="" alt="QR preview" />
+              <div>
+                <div class="qr-bid" id="qr-decoded">—</div>
+                <button type="button" class="btn btn-sm btn-p" style="margin-top:10px" onclick="lookupFromQR()">Verify this batch →</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  </div>
-
-  <div class="loader" id="pub-loader"><div class="spinner"></div></div>
-  <div style="padding:0 1.5rem"><div class="err-msg" id="pub-err"></div></div>
-
-  <div class="result-wrap">
-    <div class="result-card" id="result-card">
-      <div class="rc-hdr">
-        <div>
-          <div class="rc-drug" id="res-name">—</div>
-          <div class="rc-bid" id="res-bid">—</div>
-        </div>
-        <div class="spill" id="res-status">—</div>
-      </div>
-      <div class="auth-bar">
-        <span class="auth-icon" id="res-aicon">⬜</span>
-        <span class="auth-lbl" id="res-albl">Checking…</span>
-        <span style="margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:.7rem;color:var(--muted)" id="res-mfr">—</span>
-      </div>
-
-      <div id="res-allergy-alert" style="display:none; padding: 1rem 1.75rem; background: var(--danger-bg); border-bottom: 1px solid var(--danger-bd); color: var(--danger); align-items: center; gap: 12px;">
-        <span style="font-size: 1.8rem;">🚨</span>
-        <div>
-          <div style="font-family:'IBM Plex Mono',monospace; font-size:0.7rem; letter-spacing:1px; text-transform:uppercase; font-weight:700; margin-bottom:3px;">Critical Warning: Allergy Clash</div>
-          <div style="font-size: 0.85rem; font-weight: 500;">This medicine contains ingredients matching your profile. <strong>DO NOT CONSUME.</strong></div>
-        </div>
-      </div>
-
-      <div class="result-split">
-          <div class="split-left">
-              <div class="sec-lbl">Supply Chain Journey</div>
-              <div class="tl" style="margin-bottom: 2rem;">
-                <div class="tl-step"><div class="tl-dot" id="tl-CREATED">✓</div><div class="tl-lbl" id="tll-CREATED">Manufactured</div></div>
-                <div class="tl-step"><div class="tl-dot" id="tl-IN_DISTRIBUTION">→</div><div class="tl-lbl" id="tll-IN_DISTRIBUTION">In Transit</div></div>
-                <div class="tl-step"><div class="tl-dot" id="tl-AT_DISTRIBUTOR">📦</div><div class="tl-lbl" id="tll-AT_DISTRIBUTOR">Distributor</div></div>
-                <div class="tl-step"><div class="tl-dot" id="tl-AT_PHARMACY">🏥</div><div class="tl-lbl" id="tll-AT_PHARMACY">Pharmacy</div></div>
-                <div class="tl-step"><div class="tl-dot" id="tl-SOLD">✅</div><div class="tl-lbl" id="tll-SOLD">Sold</div></div>
+      
+      <div class="result-area" id="result-area">
+        <div class="loader" id="pub-loader"><div class="spinner"></div></div>
+        <div style="width:100%; padding:0 1.5rem;"><div class="err-msg" id="pub-err"></div></div>
+        
+        <div class="result-wrap">
+          <div class="result-card" id="result-card">
+            <div class="rc-hdr">
+              <div>
+                <div class="rc-drug" id="res-name">—</div>
+                <div class="rc-bid" id="res-bid">—</div>
+              </div>
+              <div class="spill" id="res-status">—</div>
+            </div>
+            <div class="auth-bar">
+              <span class="auth-icon" id="res-aicon">⬜</span>
+              <span class="auth-lbl" id="res-albl">Checking…</span>
+              <span style="margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:.7rem;color:var(--muted)" id="res-mfr">—</span>
+            </div>
+            <div id="res-allergy-alert" style="display:none; padding: 1rem 1.75rem; background: var(--danger-bg); border-bottom: 1px solid var(--danger-bd); color: var(--danger); align-items: center; gap: 12px;">
+              <span style="font-size: 1.8rem;">🚨</span>
+              <div>
+                <div style="font-family:'IBM Plex Mono',monospace; font-size:0.7rem; letter-spacing:1px; text-transform:uppercase; font-weight:700; margin-bottom:3px;">Critical Warning: Allergy Clash</div>
+                <div style="font-size: 0.85rem; font-weight: 500;">This medicine contains ingredients matching your profile. <strong>DO NOT CONSUME.</strong></div>
+              </div>
+            </div>
+            
+            <div class="result-split">
+              <div class="split-left">
+                <div class="sec-lbl">Supply Chain Journey</div>
+                <div class="tl" style="margin-bottom: 2rem;">
+                  <div class="tl-step"><div class="tl-dot" id="tl-CREATED">✓</div><div class="tl-lbl" id="tll-CREATED">Manufactured</div></div>
+                  <div class="tl-step"><div class="tl-dot" id="tl-IN_DISTRIBUTION">→</div><div class="tl-lbl" id="tll-IN_DISTRIBUTION">In Transit</div></div>
+                  <div class="tl-step"><div class="tl-dot" id="tl-AT_DISTRIBUTOR">📦</div><div class="tl-lbl" id="tll-AT_DISTRIBUTOR">Distributor</div></div>
+                  <div class="tl-step"><div class="tl-dot" id="tl-AT_PHARMACY">🏥</div><div class="tl-lbl" id="tll-AT_PHARMACY">Pharmacy</div></div>
+                  <div class="tl-step"><div class="tl-dot" id="tl-SOLD">✅</div><div class="tl-lbl" id="tll-SOLD">Sold</div></div>
+                </div>
+                
+                <div class="rc-grid" style="border: 1px solid var(--border); border-radius: 8px; overflow: hidden;">
+                  <div class="rc-cell"><div class="clbl">Current Owner</div><div class="cval mono" id="res-owner">—</div></div>
+                  <div class="rc-cell"><div class="clbl">Mfg Date</div><div class="cval" id="res-mfg">—</div></div>
+                  <div class="rc-cell"><div class="clbl">Expiry Date</div><div class="cval" id="res-exp">—</div></div>
+                </div>
               </div>
               
-              <div class="rc-grid" style="border: 1px solid var(--border); border-radius: 8px; overflow: hidden;">
-                <div class="rc-cell"><div class="clbl">Current Owner</div><div class="cval mono" id="res-owner">—</div></div>
-                <div class="rc-cell"><div class="clbl">Mfg Date</div><div class="cval" id="res-mfg">—</div></div>
-                <div class="rc-cell"><div class="clbl">Expiry Date</div><div class="cval" id="res-exp">—</div></div>
-              </div>
-          </div>
-
-          <div class="split-right" style="background: var(--surface2); padding: 1.25rem; border-radius: 12px; border: 1px solid var(--border);">
-              <div style="margin-bottom: 1.5rem;" id="res-info">
+              <div class="split-right" style="background: var(--surface2); padding: 1.25rem; border-radius: 12px; border: 1px solid var(--border);">
+                <div style="margin-bottom: 1.5rem;" id="res-info">
                   <div class="clbl">⚠ Side Effects</div>
                   <div class="tag-list" id="res-se" style="margin-bottom: 1rem;"></div>
                   <div class="clbl">🚫 Allergy Warnings</div>
                   <div class="tag-list" id="res-al"></div>
-              </div>
-              <div class="clbl">Regulatory</div>
-              <button class="btn btn-g btn-sm" style="width: 100%; margin-top: 5px; justify-content: center; background: var(--surface);" onclick="alert('Demo: Opening IPFS License Document...')">
+                </div>
+                <div class="clbl">Regulatory</div>
+                <button class="btn btn-g btn-sm" style="width: 100%; margin-top: 5px; justify-content: center; background: var(--surface);" onclick="alert('Demo: Opening IPFS License Document...')">
                   📄 View Mfg License
-              </button>
+                </button>
+              </div>
+            </div>
           </div>
+        </div>
       </div>
     </div>
   </div>
-</div>
 
-<div id="page-companies" class="page">
-  <div class="hero" style="padding-bottom: 1rem;">
-    <h1 class="hero-title">Verified <em>Network</em></h1>
-    <p class="hero-sub">Trust is built on transparency. Meet the verified members securing the Rx-Block blockchain.</p>
-  </div>
-  <div class="companies-grid">
-     <div class="company-card">
+  <div id="page-companies" class="page">
+    <div class="hero" style="padding-bottom: 1rem;">
+      <h1 class="hero-title">Verified <em>Network</em></h1>
+      <p class="hero-sub">Trust is built on transparency. Meet the verified members securing the Rx-Block blockchain.</p>
+    </div>
+    <div class="companies-grid">
+      <div class="company-card">
         <img src="https://images.unsplash.com/photo-1587370560942-ad2a04eabb6d?auto=format&fit=crop&w=400&q=80" alt="PharmaCorp">
         <div class="company-body">
-           <div class="role-badge r-TIER1_MANUFACTURER" style="display:inline-block; margin-bottom:10px;">Tier 1 Manufacturer</div>
-           <h3>PharmaCorp Ltd.</h3>
-           <p>Leading generic drug manufacturer with WHO-GMP certified facilities across India. Ensuring affordable, high-quality healthcare.</p>
-           <div style="display: flex; gap: 10px; margin-top: 15px;">
-              <a href="#" class="btn btn-g btn-sm" style="flex:1; justify-content:center;">🌐 Website</a>
-              <button class="btn btn-p btn-sm" style="flex:1; justify-content:center;" onclick="alert('IPFS License Hash: QmXyZ123...')">📄 License</button>
-           </div>
+          <div class="role-badge r-TIER1_MANUFACTURER" style="display:inline-block; margin-bottom:10px;">Tier 1 Manufacturer</div>
+          <h3>PharmaCorp Ltd.</h3>
+          <p>Leading generic drug manufacturer with WHO-GMP certified facilities across India. Ensuring affordable, high-quality healthcare.</p>
+          <div style="display: flex; gap: 10px; margin-top: 15px;">
+            <a href="#" class="btn btn-g btn-sm" style="flex:1; justify-content:center;">🌐 Website</a>
+            <button class="btn btn-p btn-sm" style="flex:1; justify-content:center;" onclick="alert('IPFS License Hash: QmXyZ123...')">📄 License</button>
+          </div>
         </div>
-     </div>
-     <div class="company-card">
+      </div>
+      <div class="company-card">
         <img src="https://images.unsplash.com/photo-1532938911079-1b06ac7ce122?auto=format&fit=crop&w=400&q=80" alt="Sun Pharma">
         <div class="company-body">
-           <div class="role-badge r-TIER1_MANUFACTURER" style="display:inline-block; margin-bottom:10px;">Tier 1 Manufacturer</div>
-           <h3>Sun Pharma Industries</h3>
-           <p>Global specialty pharma company producing a comprehensive range of quality, affordable medicines trusted by healthcare professionals.</p>
-           <div style="display: flex; gap: 10px; margin-top: 15px;">
-              <a href="#" class="btn btn-g btn-sm" style="flex:1; justify-content:center;">🌐 Website</a>
-              <button class="btn btn-p btn-sm" style="flex:1; justify-content:center;" onclick="alert('IPFS License Hash: QmABC987...')">📄 License</button>
-           </div>
+          <div class="role-badge r-TIER1_MANUFACTURER" style="display:inline-block; margin-bottom:10px;">Tier 1 Manufacturer</div>
+          <h3>Sun Pharma Industries</h3>
+          <p>Global specialty pharma company producing a comprehensive range of quality, affordable medicines trusted by healthcare professionals.</p>
+          <div style="display: flex; gap: 10px; margin-top: 15px;">
+            <a href="#" class="btn btn-g btn-sm" style="flex:1; justify-content:center;">🌐 Website</a>
+            <button class="btn btn-p btn-sm" style="flex:1; justify-content:center;" onclick="alert('IPFS License Hash: QmABC987...')">📄 License</button>
+          </div>
         </div>
-     </div>
-     <div class="company-card">
+      </div>
+      <div class="company-card">
         <img src="https://images.unsplash.com/photo-1586528116311-ad8ed7c80a30?auto=format&fit=crop&w=400&q=80" alt="Logistics">
         <div class="company-body">
-           <div class="role-badge r-DISTRIBUTOR" style="display:inline-block; margin-bottom:10px;">Authorized Logistics</div>
-           <h3>Global Pharma Distributors</h3>
-           <p>State-of-the-art cold chain logistics ensuring medicines remain perfectly preserved from factory to pharmacy.</p>
-           <div style="display: flex; gap: 10px; margin-top: 15px;">
-              <a href="#" class="btn btn-g btn-sm" style="width: 100%; justify-content:center;">🌐 Website</a>
-           </div>
+          <div class="role-badge r-DISTRIBUTOR" style="display:inline-block; margin-bottom:10px;">Authorized Logistics</div>
+          <h3>Global Pharma Distributors</h3>
+          <p>State-of-the-art cold chain logistics ensuring medicines remain perfectly preserved from factory to pharmacy.</p>
+          <div style="display: flex; gap: 10px; margin-top: 15px;">
+            <a href="#" class="btn btn-g btn-sm" style="width: 100%; justify-content:center;">🌐 Website</a>
+          </div>
         </div>
-     </div>
+      </div>
+    </div>
   </div>
-</div>
 
-<div id="page-stats" class="page">
-  <div class="hero" style="padding-bottom: 1rem;">
-    <h1 class="hero-title">My <em>Health</em> Hub</h1>
-    <p class="hero-sub">Manage your medical profile to enable automatic smart-contract warnings.</p>
-  </div>
-  <div style="max-width: 720px; margin: 0 auto 4rem; padding: 0 1.5rem;">
-     <div class="stats-g" style="grid-template-columns: 1fr 1fr;">
+  <div id="page-stats" class="page">
+    <div class="hero" style="padding-bottom: 1rem;">
+      <h1 class="hero-title">My <em>Health</em> Hub</h1>
+      <p class="hero-sub">Manage your medical profile to enable automatic smart-contract warnings.</p>
+    </div>
+    <div style="max-width: 720px; margin: 0 auto 4rem; padding: 0 1.5rem;">
+      <div class="stats-g" style="grid-template-columns: 1fr 1fr;">
         <div class="scard"><div class="slbl">Medicines Verified</div><div class="sval ca">14</div></div>
         <div class="scard"><div class="slbl">Clashes Prevented</div><div class="sval cw">1</div></div>
-     </div>
-     <div class="card">
+      </div>
+      <div class="card">
         <div class="card-hdr"><span class="card-hdr-t">Medical & Allergy Profile</span></div>
         <div class="card-body">
-           <p style="font-size: 0.8rem; color: var(--muted); margin-bottom: 1rem;">Enter your known allergies (comma separated). If you scan a medicine containing these, the system will alert you.</p>
-           <input type="text" id="page-allergies" placeholder="e.g. Penicillin, Sulfa, Paracetamol" style="width: 100%; margin-bottom: 1rem;">
-           <button class="btn btn-p" onclick="saveAllergiesFromPage()">💾 Save Profile to Device</button>
+          <p style="font-size: 0.8rem; color: var(--muted); margin-bottom: 1rem;">Enter your known allergies (comma separated). If you scan a medicine containing these, the system will alert you.</p>
+          <input type="text" id="page-allergies" placeholder="e.g. Penicillin, Sulfa, Paracetamol" style="width: 100%; margin-bottom: 1rem;">
+          <button class="btn btn-p" onclick="saveAllergiesFromPage()">💾 Save Profile to Device</button>
         </div>
-     </div>
+      </div>
+    </div>
   </div>
-</div>
 
-<div id="page-settings" class="page">
-  <div class="hero" style="padding-bottom: 1rem;">
-    <h1 class="hero-title">Account <em>Settings</em></h1>
-  </div>
-  <div style="max-width: 500px; margin: 0 auto 4rem; padding: 0 1.5rem;">
-     <div class="card">
+  <div id="page-settings" class="page">
+    <div class="hero" style="padding-bottom: 1rem;">
+      <h1 class="hero-title">Account <em>Settings</em></h1>
+    </div>
+    <div style="max-width: 500px; margin: 0 auto 4rem; padding: 0 1.5rem;">
+      <div class="card">
         <div class="card-body" style="display:flex; flex-direction:column; gap: 20px;">
-           <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom: 15px; border-bottom: 1px solid var(--border);">
-              <span style="font-weight: 500;">🌓 Appearance</span>
-              <button class="btn btn-g btn-sm" onclick="toggleTheme()">Toggle Theme</button>
-           </div>
-           
-           <div style="display:flex; flex-direction:column; gap: 10px; padding-bottom: 15px; border-bottom: 1px solid var(--border);">
-              <span style="font-weight: 500;">🌐 Language Translation</span>
-              <div id="google_translate_element" style="min-height:35px; border-radius: 8px; overflow: hidden;"></div>
-           </div>
-
-           <div style="display:flex; justify-content:space-between; align-items:center;">
-              <span style="color: var(--danger); font-weight: 500;">🚪 Account Control</span>
-              <button class="btn btn-sm" style="background: var(--danger-bg); color: var(--danger);" onclick="logoutUser()">Log Out</button>
-           </div>
-        </div>
-     </div>
-  </div>
-</div>
-
-<div id="page-admin" class="page">
-  <div class="admin-layout">
-    <aside class="sidebar">
-      <div class="sb-lbl" data-roles="mfg">Manufacturer</div>
-      <button type="button" class="sb-item active" data-roles="mfg" onclick="showPanel('create',this)"><span class="sb-icon"></span>Create Batch</button>
-      
-      <div class="sb-lbl" data-roles="mfg,dist,pharm">Supply Chain</div>
-      <button type="button" class="sb-item" data-roles="mfg,dist" onclick="showPanel('transfer',this)"><span class="sb-icon"></span>Transfer Batch</button>
-      <button type="button" class="sb-item" data-roles="dist" onclick="showPanel('accept',this)"><span class="sb-icon"></span>Accept Delivery<span class="sb-badge">!</span></button>
-      <button type="button" class="sb-item" data-roles="mfg,dist" onclick="showPanel('split',this)"><span class="sb-icon"></span>Split Batch</button>
-      <button type="button" class="sb-item" data-roles="dist" onclick="showPanel('transfer-pharmacy',this)"><span class="sb-icon"></span>To Pharmacy</button>
-      <button type="button" class="sb-item" data-roles="pharm" onclick="showPanel('pharmacy-accept',this)"><span class="sb-icon"></span>Pharm Accept<span class="sb-badge">!</span></button>
-      <button type="button" class="sb-item" data-roles="pharm" onclick="showPanel('sell',this)"><span class="sb-icon"></span>Sell Units</button>
-      
-      <div class="sb-lbl" data-roles="gov">Governance & Medical</div>
-      <button type="button" class="sb-item" data-roles="gov" onclick="showPanel('medinfo',this)"><span class="sb-icon"></span>Update Med Info</button>
-      <button type="button" class="sb-item" data-roles="gov" onclick="showPanel('propose',this)"><span class="sb-icon"></span>Propose Company</button>
-      <button type="button" class="sb-item" data-roles="gov" onclick="showPanel('vote',this)"><span class="sb-icon"></span>Vote</button>
-      
-      <div class="sb-lbl" data-roles="all">Network Tools</div>
-      <button type="button" class="sb-item" data-roles="all" onclick="showPanel('dashboard',this)"><span class="sb-icon"></span>Dashboard</button>
-      <button type="button" class="sb-item" data-roles="all" onclick="showPanel('role',this)"><span class="sb-icon"></span>Check Wallet Role</button>
-      
-      <button type="button" class="sb-item" data-roles="all" style="color: var(--danger); margin-top: 2rem;" onclick="logoutUser()">🚪 Secure Logout</button>
-    </aside>
-
-    <main class="admin-main">
-      <div class="cfg-bar">
-        <span></span><span>API Base URL</span>
-        <input type="text" id="api-url" value="http://127.0.0.1:8000"/>
-      </div>
-
-      <div id="panel-create" class="panel active">
-        <div class="phdr">
-          <div class="ptitle">Create Medicine Batch</div>
-          <div class="psub"><span class="mtag POST">POST</span><span class="eurl">/batch/create-with-qr</span></div>
-        </div>
-        <div class="card">
-          <div class="card-hdr"><span class="card-hdr-t">Batch Details</span></div>
-          <div class="card-body">
-            <div class="fg">
-              <div class="fgrp"><label>Batch ID *</label><input type="text" id="c-id" placeholder="MFG-2025-00142"/></div>
-              <div class="fgrp"><label>Drug Name *</label><input type="text" id="c-name" placeholder="Paracetamol 500mg"/></div>
-              <div class="fgrp"><label>Manufacturer *</label><input type="text" id="c-mfr" placeholder="PharmaCorp Ltd."/></div>
-              <div class="fgrp"><label>Quantity (units) *</label><input type="number" id="c-qty" placeholder="10000" min="1"/></div>
-              <div class="fgrp"><label>Manufacturing Date *</label><input type="date" id="c-mfg"/></div>
-              <div class="fgrp"><label>Expiry Date *</label><input type="date" id="c-exp"/></div>
-              
-              <div class="fgrp s2" style="background:var(--accent-bg); padding:15px; border-radius:10px; border:1px solid var(--accent-bd);">
-                <label style="color:var(--accent);">License Diagram (Generates On-Chain IPFS Hash)</label>
-                <div style="display:flex; gap:10px;">
-                  <input type="file" id="license-file" accept="image/*" onchange="generateIPFSHash(this)" style="flex: 1; padding:5px;">
-                  <input type="text" id="ipfs-hash-result" placeholder="Qm..." readonly style="flex: 2; color: var(--accent); background: var(--surface); border:1px solid var(--accent-bd);">
-                </div>
-              </div>
-            </div>
-            <div class="factions">
-              <button type="button" class="btn btn-p" onclick="createBatch()">🧬 Create &amp; Generate QR</button>
-              <span id="c-status" style="font-size:.8rem;color:var(--muted)"></span>
-            </div>
-            <div class="qr-result" id="qr-result">
-              <div style="font-family:'IBM Plex Mono',monospace;font-size:.62rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:1rem">QR Code Generated</div>
-              <img id="qr-img" src="" alt="QR"/>
-              <div class="qr-lbl-txt" id="qr-lbl"></div>
-              <div style="margin-top:1rem;display:flex;gap:.75rem;justify-content:center">
-                <a id="qr-dl" class="btn btn-g btn-sm" download="qr.png">⬇ Download</a>
-              </div>
-            </div>
-            <div class="api-resp" id="c-resp"></div>
+          <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom: 15px; border-bottom: 1px solid var(--border);">
+            <span style="font-weight: 500;">🌓 Appearance</span>
+            <button class="btn btn-g btn-sm" onclick="toggleTheme()">Toggle Theme</button>
+          </div>
+          <div style="display:flex; flex-direction:column; gap: 10px; padding-bottom: 15px; border-bottom: 1px solid var(--border);">
+            <span style="font-weight: 500;">🌐 Language Translation</span>
+            <div id="google_translate_element" style="min-height:35px; border-radius: 8px; overflow: hidden;"></div>
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span style="color: var(--danger); font-weight: 500;">🚪 Account Control</span>
+            <button class="btn btn-sm" style="background: var(--danger-bg); color: var(--danger);" onclick="logoutUser()">Log Out</button>
           </div>
         </div>
       </div>
-
-      <div id="panel-transfer" class="panel">
-        <div class="phdr">
-          <div class="ptitle">Transfer Batch</div>
-          <div class="psub"><span class="mtag POST">POST</span><span class="eurl">/batch/transfer</span></div>
-        </div>
-        <div class="card">
-          <div class="card-hdr"><span class="card-hdr-t">Transfer Details</span></div>
-          <div class="card-body">
-            <div class="fg">
-              <div class="fgrp"><label>Batch ID *</label><input type="text" id="t-id" placeholder="MFG-2025-00142"/></div>
-              <div class="fgrp"><label>Recipient Address *</label><input type="text" id="t-to" placeholder="0x…"/></div>
-              <div class="fgrp s2"><label>Your Private Key *</label><input type="text" id="t-pk" placeholder="0x… (sent only to your local backend)"/></div>
-            </div>
-            <div class="factions"><button type="button" class="btn btn-p" onclick="doTransfer()">🔀 Initiate Transfer</button></div>
-            <div class="api-resp" id="t-resp"></div>
-          </div>
-        </div>
-      </div>
-
-      <div id="panel-accept" class="panel">
-        <div class="phdr">
-          <div class="ptitle">Accept Batch</div>
-          <div class="psub"><span class="mtag POST">POST</span><span class="eurl">/batch/accept</span></div>
-        </div>
-        <div class="card">
-          <div class="card-hdr"><span class="card-hdr-t">Accept Incoming Delivery</span></div>
-          <div class="card-body">
-            <div class="fg">
-              <div class="fgrp"><label>Batch ID *</label><input type="text" id="a-id" placeholder="MFG-2025-00142"/></div>
-              <div class="fgrp"><label>Your Private Key *</label><input type="text" id="a-pk" placeholder="0x…"/></div>
-            </div>
-            <div class="factions"><button type="button" class="btn btn-p" onclick="doAccept()">✅ Accept &amp; Take Ownership</button></div>
-            <div class="api-resp" id="a-resp"></div>
-          </div>
-        </div>
-      </div>
-
-      <div id="panel-split" class="panel">
-        <div class="phdr">
-          <div class="ptitle">Split Batch</div>
-          <div class="psub"><span class="mtag POST">POST</span><span class="eurl">/batch/split</span></div>
-        </div>
-        <div class="card">
-          <div class="card-hdr"><span class="card-hdr-t">Split Parent → Child Batch</span></div>
-          <div class="card-body">
-            <div class="fg">
-              <div class="fgrp"><label>Parent Batch ID *</label><input type="text" id="sp-pid" placeholder="MFG-2025-00142"/></div>
-              <div class="fgrp"><label>New Child Batch ID *</label><input type="text" id="sp-nid" placeholder="SPLIT-2025-001"/></div>
-              <div class="fgrp"><label>Recipient Address *</label><input type="text" id="sp-to" placeholder="0x…"/></div>
-              <div class="fgrp"><label>Quantity *</label><input type="number" id="sp-qty" placeholder="500" min="1"/></div>
-              <div class="fgrp s2"><label>Your Private Key *</label><input type="text" id="sp-pk" placeholder="0x…"/></div>
-            </div>
-            <div class="factions"><button type="button" class="btn btn-p" onclick="doSplit()">✂️ Split Batch</button></div>
-            <div class="api-resp" id="sp-resp"></div>
-          </div>
-        </div>
-      </div>
-
-      <div id="panel-transfer-pharmacy" class="panel">
-        <div class="phdr">
-          <div class="ptitle">Transfer to Pharmacy</div>
-          <div class="psub"><span class="mtag POST">POST</span><span class="eurl">/batch/transfer-to-pharmacy</span></div>
-        </div>
-        <div class="card">
-          <div class="card-hdr"><span class="card-hdr-t">Send specific batch to Pharmacy</span></div>
-          <div class="card-body">
-            <div class="fg">
-              <div class="fgrp"><label>Batch ID *</label><input type="text" id="tp-id" placeholder="SPLIT-2025-001"/></div>
-              <div class="fgrp"><label>Pharmacy Address *</label><input type="text" id="tp-to" placeholder="0x…"/></div>
-              <div class="fgrp s2"><label>Your Private Key *</label><input type="text" id="tp-pk" placeholder="0x…"/></div>
-            </div>
-            <div class="factions"><button type="button" class="btn btn-p" onclick="doTransferPharmacy()">🏥 Initiate Transfer</button></div>
-            <div class="api-resp" id="tp-resp"></div>
-          </div>
-        </div>
-      </div>
-
-      <div id="panel-pharmacy-accept" class="panel">
-        <div class="phdr">
-          <div class="ptitle">Pharmacy Accept</div>
-          <div class="psub"><span class="mtag POST">POST</span><span class="eurl">/batch/pharmacy-accept</span></div>
-        </div>
-        <div class="card">
-          <div class="card-hdr"><span class="card-hdr-t">Pharmacy Receives Batch</span></div>
-          <div class="card-body">
-            <div class="fg">
-              <div class="fgrp"><label>Batch ID *</label><input type="text" id="pa-id" placeholder="SPLIT-2025-001"/></div>
-              <div class="fgrp"><label>Pharmacy Private Key *</label><input type="text" id="pa-pk" placeholder="0x…"/></div>
-            </div>
-            <div class="factions"><button type="button" class="btn btn-p" onclick="doPharmacyAccept()">✅ Accept at Pharmacy</button></div>
-            <div class="api-resp" id="pa-resp"></div>
-          </div>
-        </div>
-      </div>
-
-      <div id="panel-sell" class="panel">
-        <div class="phdr">
-          <div class="ptitle">Sell Units</div>
-          <div class="psub"><span class="mtag POST">POST</span><span class="eurl">/batch/sell</span></div>
-        </div>
-        <div class="card">
-          <div class="card-hdr"><span class="card-hdr-t">Record Sale</span></div>
-          <div class="card-body">
-            <div class="fg">
-              <div class="fgrp"><label>Batch ID *</label><input type="text" id="sl-id" placeholder="SPLIT-2025-001"/></div>
-              <div class="fgrp"><label>Quantity Sold *</label><input type="number" id="sl-qty" placeholder="1" min="1"/></div>
-              <div class="fgrp s2"><label>Your Private Key *</label><input type="text" id="sl-pk" placeholder="0x…"/></div>
-            </div>
-            <div class="factions"><button type="button" class="btn btn-p" onclick="doSell()">💊 Record Sale</button></div>
-            <div class="api-resp" id="sl-resp"></div>
-          </div>
-        </div>
-      </div>
-
-      <div id="panel-medinfo" class="panel">
-        <div class="phdr">
-          <div class="ptitle">Update Medicine Info</div>
-          <div class="psub"><span class="mtag PATCH">PATCH</span><span class="eurl">/batch/info/{batch_id}</span></div>
-        </div>
-        <div class="card">
-          <div class="card-hdr"><span class="card-hdr-t">Load Existing Info</span></div>
-          <div class="card-body">
-            <div style="display:flex;gap:.75rem;align-items:flex-end">
-              <div class="fgrp" style="flex:1"><label>Batch ID to Load</label><input type="text" id="mi-fetch-id" placeholder="MFG-2025-00142"/></div>
-              <button type="button" class="btn btn-g" onclick="fetchMedInfo()">Load →</button>
-            </div>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-hdr"><span class="card-hdr-t">Side Effects &amp; Allergy Warnings</span></div>
-          <div class="card-body">
-            <div class="fg">
-              <div class="fgrp"><label>Batch ID *</label><input type="text" id="mi-id" placeholder="MFG-2025-00142"/></div>
-              <div class="fgrp"><label>Drug Name</label><input type="text" id="mi-name" placeholder="Auto-filled or enter manually"/></div>
-              <div class="fgrp s2">
-                <label>Side Effects — press <kbd>Enter</kbd> or <kbd>,</kbd> to add a tag</label>
-                <div class="tags-wrap" onclick="document.getElementById('se-inp').focus()">
-                  <div id="se-tags"></div>
-                  <input class="tag-inp" id="se-inp" placeholder="e.g. Nausea, Dizziness…" onkeydown="handleTag(event,'se')"/>
-                </div>
-              </div>
-              <div class="fgrp s2">
-                <label>Allergy Warnings — press <kbd>Enter</kbd> or <kbd>,</kbd> to add a tag</label>
-                <div class="tags-wrap" onclick="document.getElementById('al-inp').focus()">
-                  <div id="al-tags"></div>
-                  <input class="tag-inp" id="al-inp" placeholder="e.g. Penicillin, Sulfa drugs…" onkeydown="handleTag(event,'al')"/>
-                </div>
-              </div>
-            </div>
-            <div class="factions">
-              <button type="button" class="btn btn-p" onclick="updateMedInfo()">🧬 Save Medicine Info</button>
-              <button type="button" class="btn btn-g" onclick="clearMed()">Clear</button>
-            </div>
-            <div class="api-resp" id="mi-resp"></div>
-          </div>
-        </div>
-      </div>
-
-      <div id="panel-propose" class="panel">
-        <div class="phdr">
-          <div class="ptitle">Propose Company</div>
-          <div class="psub"><span class="mtag POST">POST</span><span class="eurl">/batch/propose</span></div>
-        </div>
-        <div class="card">
-          <div class="card-hdr"><span class="card-hdr-t">Governance: New Participant</span></div>
-          <div class="card-body">
-            <div style="background:var(--warn-bg);border:1px solid var(--warn-bd);border-radius:9px;padding:.875rem 1rem;font-size:.82rem;color:var(--text2);margin-bottom:1.25rem">
-              ⚖️ Requires <strong style="color:var(--text)">3 validator votes</strong> before the participant is authorized on-chain.
-            </div>
-            <div class="fg">
-              <div class="fgrp"><label>Candidate Address *</label><input type="text" id="pr-addr" placeholder="0x…"/></div>
-              <div class="fgrp"><label>Role *</label>
-                <select id="pr-role">
-                  <option value="1">Tier 1 Manufacturer</option>
-                  <option value="2">Tier 2 Manufacturer</option>
-                  <option value="3">Distributor</option>
-                  <option value="4">Pharmacy</option>
-                  <option value="5">Validator</option>
-                </select>
-              </div>
-              <div class="fgrp s2"><label>Proposer Private Key *</label><input type="text" id="pr-pk" placeholder="0x…"/></div>
-            </div>
-            <div class="factions"><button type="button" class="btn btn-p" onclick="doPropose()">📋 Submit Proposal</button></div>
-            <div class="api-resp" id="pr-resp"></div>
-          </div>
-        </div>
-      </div>
-
-      <div id="panel-vote" class="panel">
-        <div class="phdr">
-          <div class="ptitle">Vote on Proposal</div>
-          <div class="psub"><span class="mtag POST">POST</span><span class="eurl">/batch/vote/{id}</span></div>
-        </div>
-        <div class="card">
-          <div class="card-hdr"><span class="card-hdr-t">Cast Validator Vote</span></div>
-          <div class="card-body">
-            <div class="fg">
-              <div class="fgrp"><label>Proposal ID *</label><input type="number" id="v-id" placeholder="1" min="0"/></div>
-              <div class="fgrp"><label>Validator Private Key *</label><input type="text" id="v-pk" placeholder="0x…"/></div>
-            </div>
-            <div class="factions"><button type="button" class="btn btn-p" onclick="doVote()">🗳 Cast Vote</button></div>
-            <div class="api-resp" id="v-resp"></div>
-          </div>
-        </div>
-      </div>
-
-      <div id="panel-role" class="panel">
-        <div class="phdr">
-          <div class="ptitle">Check Wallet Role</div>
-          <div class="psub"><span class="mtag GET">GET</span><span class="eurl">/batch/user/role/{address}</span></div>
-        </div>
-        <div class="card">
-          <div class="card-hdr"><span class="card-hdr-t">Role Lookup</span></div>
-          <div class="card-body">
-            <div class="fg">
-              <div class="fgrp s2"><label>Wallet Address *</label><input type="text" id="cr-addr" placeholder="0x…"/></div>
-            </div>
-            <div class="factions"><button type="button" class="btn btn-g" onclick="doRole()">🔍 Lookup Role</button></div>
-            <div id="role-result" style="display:none;margin-top:1.25rem">
-              <div style="display:flex;align-items:center;gap:12px;padding:1rem 1.25rem;background:var(--faint);border:1px solid var(--border);border-radius:11px">
-                <span style="font-family:'IBM Plex Mono',monospace;font-size:.75rem;color:var(--muted)">Role:</span>
-                <span class="role-badge" id="role-badge">—</span>
-                <span style="margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:.7rem;color:var(--muted)" id="role-short">—</span>
-              </div>
-            </div>
-            <div class="api-resp" id="cr-resp"></div>
-          </div>
-        </div>
-      </div>
-
-      <div id="panel-dashboard" class="panel">
-        <div class="phdr">
-          <div class="ptitle">Dashboard</div>
-          <div class="psub">Quick batch lookup &amp; network overview</div>
-        </div>
-        <div class="stats-g">
-          <div class="scard"><div class="slbl">Total Batches</div><div class="sval ca">—</div></div>
-          <div class="scard"><div class="slbl">In Transit</div><div class="sval cw">—</div></div>
-          <div class="scard"><div class="slbl">At Pharmacy</div><div class="sval ca">—</div></div>
-          <div class="scard"><div class="slbl">Fully Sold</div><div class="sval">—</div></div>
-        </div>
-        <div class="card">
-          <div class="card-hdr"><span class="card-hdr-t">Quick Lookup</span></div>
-          <div class="card-body">
-            <div style="display:flex;gap:.75rem;align-items:flex-end;flex-wrap:wrap">
-              <div class="fgrp" style="flex:1;min-width:200px"><label>Batch ID</label><input type="text" id="dash-id" placeholder="MFG-2025-00142"/></div>
-              <button type="button" class="btn btn-g" onclick="dashLookup()">🔍 Fetch</button>
-            </div>
-            <div id="dash-result" style="margin-top:1rem"></div>
-          </div>
-        </div>
-      </div>
-
-    </main>
-  </div>
-</div>
-
-<div class="toast-wrap" id="toasts"></div>
-
-<div class="guest-toast" id="guest-toast">
-  <span>Unlock personalized allergy warnings and history.</span>
-  <button class="btn btn-sm btn-p" onclick="document.getElementById('auth-modal').classList.add('show')">Login for Best Experience</button>
-  <button class="btn-close-toast" onclick="document.getElementById('guest-toast').style.display='none'">✕</button>
-</div>
-
-<div id="auth-modal" class="allergy-modal">
-  <div class="allergy-content" style="max-width: 450px;">
-    <div class="verify-tabs" style="margin-bottom: 1.5rem;">
-      <button type="button" class="vtab active" onclick="switchAuthTab('patient', this)">Patient / User</button>
-      <button type="button" class="vtab" onclick="switchAuthTab('member', this)">Chain Member</button>
-    </div>
-
-    <div id="auth-patient" class="vpanel active">
-      <h3 style="margin-bottom: 1rem; font-family: 'Playfair Display', serif;">Welcome to Rx-Block</h3>
-      <input type="text" id="pt-user" placeholder="Username" style="width: 100%; padding: 10px; border-radius: 8px; margin-bottom: 10px; background: var(--input-bg); border: 1px solid var(--border); color: var(--text);">
-      <input type="password" id="pt-pass" placeholder="Password" style="width: 100%; padding: 10px; border-radius: 8px; margin-bottom: 1rem; background: var(--input-bg); border: 1px solid var(--border); color: var(--text);">
-      <div style="display: flex; gap: 10px; flex-direction: column;">
-        <button class="btn btn-p" style="width: 100%; justify-content: center;" onclick="handlePatientLogin()">Login</button>
-        <button class="btn btn-g" style="width: 100%; justify-content: center;" onclick="handlePatientRegister()">Create New Account</button>
-      </div>
-    </div>
-
-    <div id="auth-member" class="vpanel">
-      <h3 style="margin-bottom: 1rem; font-family: 'Playfair Display', serif;">Enterprise Access</h3>
-      <select id="cm-role" style="width: 100%; padding: 10px; border-radius: 8px; margin-bottom: 10px; background: var(--input-bg); border: 1px solid var(--border); color: var(--text);">
-        <option value="">Select your role...</option>
-        <option value="mfg">Manufacturer</option>
-        <option value="dist">Distributor</option>
-        <option value="pharm">Pharmacy</option>
-        <option value="gov">Government / Validator</option>
-      </select>
-      <input type="password" id="cm-pass" placeholder="Role Password (e.g., mfg123)" style="width: 100%; padding: 10px; border-radius: 8px; margin-bottom: 1rem; background: var(--input-bg); border: 1px solid var(--border); color: var(--text);">
-      <button class="btn btn-warn" style="width: 100%; justify-content: center; background: var(--warn); color: #000;" onclick="handleMemberLogin()">Secure Login</button>
-    </div>
-    
-    <div style="text-align: right; margin-top: 15px;">
-      <button class="btn btn-sm" onclick="document.getElementById('auth-modal').classList.remove('show')">Cancel</button>
     </div>
   </div>
-</div>
 
-<script src="script.js"></script>
+  <div id="page-admin" class="page">
+    <div class="admin-layout">
+      <aside class="sidebar">
+        <div class="sb-lbl" data-roles="mfg">Manufacturer</div>
+        <button type="button" class="sb-item active" data-roles="mfg" onclick="showPanel('create',this)"><span class="sb-icon"></span>Create Batch</button>
+        
+        <div class="sb-lbl" data-roles="mfg,dist,pharm">Supply Chain</div>
+        <button type="button" class="sb-item" data-roles="mfg,dist" onclick="showPanel('transfer',this)"><span class="sb-icon"></span>Transfer Batch</button>
+        <button type="button" class="sb-item" data-roles="dist" onclick="showPanel('accept',this)"><span class="sb-icon"></span>Accept Delivery<span class="sb-badge">!</span></button>
+        <button type="button" class="sb-item" data-roles="mfg,dist" onclick="showPanel('split',this)"><span class="sb-icon"></span>Split Batch</button>
+        <button type="button" class="sb-item" data-roles="dist" onclick="showPanel('transfer-pharmacy',this)"><span class="sb-icon"></span>To Pharmacy</button>
+        <button type="button" class="sb-item" data-roles="pharm" onclick="showPanel('pharmacy-accept',this)"><span class="sb-icon"></span>Pharm Accept<span class="sb-badge">!</span></button>
+        <button type="button" class="sb-item" data-roles="pharm" onclick="showPanel('sell',this)"><span class="sb-icon"></span>Sell Units</button>
+        
+        <div class="sb-lbl" data-roles="gov">Governance & Medical</div>
+        <button type="button" class="sb-item" data-roles="gov" onclick="showPanel('medinfo',this)"><span class="sb-icon"></span>Update Med Info</button>
+        <button type="button" class="sb-item" data-roles="gov" onclick="showPanel('propose',this)"><span class="sb-icon"></span>Propose Company</button>
+        <button type="button" class="sb-item" data-roles="gov" onclick="showPanel('vote',this)"><span class="sb-icon"></span>Vote</button>
+        
+        <div class="sb-lbl" data-roles="all">Network Tools</div>
+        <button type="button" class="sb-item" data-roles="all" onclick="showPanel('dashboard',this)"><span class="sb-icon"></span>Dashboard</button>
+        <button type="button" class="sb-item" data-roles="all" onclick="showPanel('role',this)"><span class="sb-icon"></span>Check Wallet Role</button>
+        <button type="button" class="sb-item" data-roles="all" style="color: var(--danger); margin-top: 2rem;" onclick="logoutUser()">🚪 Secure Logout</button>
+      </aside>
+      
+      <main class="admin-main">
+        <div class="cfg-bar">
+          <span></span><span>API Base URL</span>
+          <input type="text" id="api-url" value="http://127.0.0.1:8000" />
+        </div>
+        
+        <div id="panel-create" class="panel active">
+          <div class="phdr">
+            <div class="ptitle">Create Medicine Batch</div>
+            <div class="psub"><span class="mtag POST">POST</span><span class="eurl">/batch/create-with-qr</span></div>
+          </div>
+          <div class="card">
+            <div class="card-hdr"><span class="card-hdr-t">Batch Details</span></div>
+            <div class="card-body">
+              <div class="fg">
+                <div class="fgrp"><label>Batch ID *</label><input type="text" id="c-id" placeholder="MFG-2025-00142" /></div>
+                <div class="fgrp"><label>Drug Name *</label><input type="text" id="c-name" placeholder="Paracetamol 500mg" /></div>
+                <div class="fgrp"><label>Manufacturer *</label><input type="text" id="c-mfr" placeholder="PharmaCorp Ltd." /></div>
+                <div class="fgrp"><label>Quantity (units) *</label><input type="number" id="c-qty" placeholder="10000" min="1" /></div>
+                <div class="fgrp"><label>Manufacturing Date *</label><input type="date" id="c-mfg" /></div>
+                <div class="fgrp"><label>Expiry Date *</label><input type="date" id="c-exp" /></div>
+                <div class="fgrp s2" style="background:var(--accent-bg); padding:15px; border-radius:10px; border:1px solid var(--accent-bd);">
+                  <label style="color:var(--accent);">License Diagram (Generates On-Chain IPFS Hash)</label>
+                  <div style="display:flex; gap:10px;">
+                    <input type="file" id="license-file" accept="image/*" onchange="generateIPFSHash(this)" style="flex: 1; padding:5px;">
+                    <input type="text" id="ipfs-hash-result" placeholder="Qm..." readonly style="flex: 2; color: var(--accent); background: var(--surface); border:1px solid var(--accent-bd);">
+                  </div>
+                </div>
+              </div>
+              <div class="factions">
+                <button type="button" class="btn btn-p" onclick="createBatch()">🧬 Create &amp; Generate QR</button>
+                <span id="c-status" style="font-size:.8rem;color:var(--muted)"></span>
+              </div>
+              <div class="qr-result" id="qr-result">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:.62rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:1rem">QR Code Generated</div>
+                <img id="qr-img" src="" alt="QR" />
+                <div class="qr-lbl-txt" id="qr-lbl"></div>
+                <div style="margin-top:1rem;display:flex;gap:.75rem;justify-content:center">
+                  <a id="qr-dl" class="btn btn-g btn-sm" download="qr.png">⬇ Download</a>
+                </div>
+              </div>
+              <div class="api-resp" id="c-resp"></div>
+            </div>
+          </div>
+        </div>
+        
+        <div id="panel-transfer" class="panel">
+          <div class="phdr">
+            <div class="ptitle">Transfer Batch</div>
+            <div class="psub"><span class="mtag POST">POST</span><span class="eurl">/batch/transfer</span></div>
+          </div>
+          <div class="card">
+            <div class="card-hdr"><span class="card-hdr-t">Transfer Details</span></div>
+            <div class="card-body">
+              <div class="fg">
+                <div class="fgrp"><label>Batch ID *</label><input type="text" id="t-id" placeholder="MFG-2025-00142" /></div>
+                <div class="fgrp"><label>Recipient Address *</label><input type="text" id="t-to" placeholder="0x…" /></div>
+                <div class="fgrp s2"><label>Your Private Key *</label><input type="text" id="t-pk" placeholder="0x… (sent only to your local backend)" /></div>
+              </div>
+              <div class="factions"><button type="button" class="btn btn-p" onclick="doTransfer()">🔀 Initiate Transfer</button></div>
+              <div class="api-resp" id="t-resp"></div>
+            </div>
+          </div>
+        </div>
+        
+        <div id="panel-accept" class="panel">
+          <div class="phdr">
+            <div class="ptitle">Accept Batch</div>
+            <div class="psub"><span class="mtag POST">POST</span><span class="eurl">/batch/accept</span></div>
+          </div>
+          <div class="card">
+            <div class="card-hdr"><span class="card-hdr-t">Accept Incoming Delivery</span></div>
+            <div class="card-body">
+              <div class="fg">
+                <div class="fgrp"><label>Batch ID *</label><input type="text" id="a-id" placeholder="MFG-2025-00142" /></div>
+                <div class="fgrp"><label>Your Private Key *</label><input type="text" id="a-pk" placeholder="0x…" /></div>
+              </div>
+              <div class="factions"><button type="button" class="btn btn-p" onclick="doAccept()">✅ Accept &amp; Take Ownership</button></div>
+              <div class="api-resp" id="a-resp"></div>
+            </div>
+          </div>
+        </div>
+        
+        <div id="panel-split" class="panel">
+          <div class="phdr">
+            <div class="ptitle">Split Batch</div>
+            <div class="psub"><span class="mtag POST">POST</span><span class="eurl">/batch/split</span></div>
+          </div>
+          <div class="card">
+            <div class="card-hdr"><span class="card-hdr-t">Split Parent → Child Batch</span></div>
+            <div class="card-body">
+              <div class="fg">
+                <div class="fgrp"><label>Parent Batch ID *</label><input type="text" id="sp-pid" placeholder="MFG-2025-00142" /></div>
+                <div class="fgrp"><label>New Child Batch ID *</label><input type="text" id="sp-nid" placeholder="SPLIT-2025-001" /></div>
+                <div class="fgrp"><label>Recipient Address *</label><input type="text" id="sp-to" placeholder="0x…" /></div>
+                <div class="fgrp"><label>Quantity *</label><input type="number" id="sp-qty" placeholder="500" min="1" /></div>
+                <div class="fgrp s2"><label>Your Private Key *</label><input type="text" id="sp-pk" placeholder="0x…" /></div>
+              </div>
+              <div class="factions"><button type="button" class="btn btn-p" onclick="doSplit()">✂️ Split Batch</button></div>
+              <div class="api-resp" id="sp-resp"></div>
+            </div>
+          </div>
+        </div>
+        
+        <div id="panel-transfer-pharmacy" class="panel">
+          <div class="phdr">
+            <div class="ptitle">Transfer to Pharmacy</div>
+            <div class="psub"><span class="mtag POST">POST</span><span class="eurl">/batch/transfer-to-pharmacy</span></div>
+          </div>
+          <div class="card">
+            <div class="card-hdr"><span class="card-hdr-t">Send specific batch to Pharmacy</span></div>
+            <div class="card-body">
+              <div class="fg">
+                <div class="fgrp"><label>Batch ID *</label><input type="text" id="tp-id" placeholder="SPLIT-2025-001" /></div>
+                <div class="fgrp"><label>Pharmacy Address *</label><input type="text" id="tp-to" placeholder="0x…" /></div>
+                <div class="fgrp s2"><label>Your Private Key *</label><input type="text" id="tp-pk" placeholder="0x…" /></div>
+              </div>
+              <div class="factions"><button type="button" class="btn btn-p" onclick="doTransferPharmacy()">🏥 Initiate Transfer</button></div>
+              <div class="api-resp" id="tp-resp"></div>
+            </div>
+          </div>
+        </div>
+        
+        <div id="panel-pharmacy-accept" class="panel">
+          <div class="phdr">
+            <div class="ptitle">Pharmacy Accept</div>
+            <div class="psub"><span class="mtag POST">POST</span><span class="eurl">/batch/pharmacy-accept</span></div>
+          </div>
+          <div class="card">
+            <div class="card-hdr"><span class="card-hdr-t">Pharmacy Receives Batch</span></div>
+            <div class="card-body">
+              <div class="fg">
+                <div class="fgrp"><label>Batch ID *</label><input type="text" id="pa-id" placeholder="SPLIT-2025-001" /></div>
+                <div class="fgrp"><label>Pharmacy Private Key *</label><input type="text" id="pa-pk" placeholder="0x…" /></div>
+              </div>
+              <div class="factions"><button type="button" class="btn btn-p" onclick="doPharmacyAccept()">✅ Accept at Pharmacy</button></div>
+              <div class="api-resp" id="pa-resp"></div>
+            </div>
+          </div>
+        </div>
+        
+        <div id="panel-sell" class="panel">
+          <div class="phdr">
+            <div class="ptitle">Sell Units</div>
+            <div class="psub"><span class="mtag POST">POST</span><span class="eurl">/batch/sell</span></div>
+          </div>
+          <div class="card">
+            <div class="card-hdr"><span class="card-hdr-t">Record Sale</span></div>
+            <div class="card-body">
+              <div class="fg">
+                <div class="fgrp"><label>Batch ID *</label><input type="text" id="sl-id" placeholder="SPLIT-2025-001" /></div>
+                <div class="fgrp"><label>Quantity Sold *</label><input type="number" id="sl-qty" placeholder="1" min="1" /></div>
+                <div class="fgrp s2"><label>Your Private Key *</label><input type="text" id="sl-pk" placeholder="0x…" /></div>
+              </div>
+              <div class="factions"><button type="button" class="btn btn-p" onclick="doSell()">💊 Record Sale</button></div>
+              <div class="api-resp" id="sl-resp"></div>
+            </div>
+          </div>
+        </div>
+        
+        <div id="panel-medinfo" class="panel">
+          <div class="phdr">
+            <div class="ptitle">Update Medicine Info</div>
+            <div class="psub"><span class="mtag PATCH">PATCH</span><span class="eurl">/batch/info/{batch_id}</span></div>
+          </div>
+          
+          <div class="card">
+            <div class="card-hdr"><span class="card-hdr-t">Load Existing Info</span></div>
+            <div class="card-body">
+              <div style="display:flex;gap:.75rem;align-items:flex-end">
+                <div class="fgrp" style="flex:1"><label>Batch ID to Load</label><input type="text" id="mi-fetch-id" placeholder="MFG-2025-00142" /></div>
+                <button type="button" class="btn btn-g" onclick="fetchMedInfo()">Load →</button>
+              </div>
+            </div>
+          </div>
+          
+          <div class="card">
+            <div class="card-hdr"><span class="card-hdr-t">Side Effects &amp; Allergy Warnings</span></div>
+            <div class="card-body">
+              <div class="fg">
+                <div class="fgrp"><label>Batch ID *</label><input type="text" id="mi-id" placeholder="MFG-2025-00142" /></div>
+                <div class="fgrp"><label>Drug Name</label><input type="text" id="mi-name" placeholder="Auto-filled or enter manually" /></div>
+                <div class="fgrp s2">
+                  <label>Side Effects — press <kbd>Enter</kbd> or <kbd>,</kbd> to add a tag</label>
+                  <div class="tags-wrap" onclick="document.getElementById('se-inp').focus()">
+                    <div id="se-tags"></div>
+                    <input class="tag-inp" id="se-inp" placeholder="e.g. Nausea, Dizziness…" onkeydown="handleTag(event,'se')" />
+                  </div>
+                </div>
+                <div class="fgrp s2">
+                  <label>Allergy Warnings — press <kbd>Enter</kbd> or <kbd>,</kbd> to add a tag</label>
+                  <div class="tags-wrap" onclick="document.getElementById('al-inp').focus()">
+                    <div id="al-tags"></div>
+                    <input class="tag-inp" id="al-inp" placeholder="e.g. Penicillin, Sulfa drugs…" onkeydown="handleTag(event,'al')" />
+                  </div>
+                </div>
+              </div>
+              <div class="factions">
+                <button type="button" class="btn btn-p" onclick="updateMedInfo()">🧬 Save Medicine Info</button>
+                <button type="button" class="btn btn-g" onclick="clearMed()">Clear</button>
+              </div>
+              <div class="api-resp" id="mi-resp"></div>
+            </div>
+          </div>
+        </div>
+        
+        <div id="panel-propose" class="panel">
+          <div class="phdr">
+            <div class="ptitle">Propose Company</div>
+            <div class="psub"><span class="mtag POST">POST</span><span class="eurl">/batch/propose</span></div>
+          </div>
+          <div class="card">
+            <div class="card-hdr"><span class="card-hdr-t">Governance: New Participant</span></div>
+            <div class="card-body">
+              <div style="background:var(--warn-bg);border:1px solid var(--warn-bd);border-radius:9px;padding:.875rem 1rem;font-size:.82rem;color:var(--text2);margin-bottom:1.25rem">
+                Requires <strong style="color:var(--text)">3 validator votes</strong> before the participant is authorized on-chain.
+              </div>
+              <div class="fg">
+                <div class="fgrp"><label>Candidate Address *</label><input type="text" id="pr-addr" placeholder="0x…" /></div>
+                <div class="fgrp"><label>Role *</label>
+                  <select id="pr-role">
+                    <option value="1">Tier 1 Manufacturer</option>
+                    <option value="2">Tier 2 Manufacturer</option>
+                    <option value="3">Distributor</option>
+                    <option value="4">Pharmacy</option>
+                    <option value="5">Validator</option>
+                  </select>
+                </div>
+                <div class="fgrp s2"><label>Proposer Private Key *</label><input type="text" id="pr-pk" placeholder="0x…" /></div>
+              </div>
+              <div class="factions"><button type="button" class="btn btn-p" onclick="doPropose()">📋 Submit Proposal</button></div>
+              <div class="api-resp" id="pr-resp"></div>
+            </div>
+          </div>
+        </div>
+        
+        <div id="panel-vote" class="panel">
+          <div class="phdr">
+            <div class="ptitle">Vote on Proposal</div>
+            <div class="psub"><span class="mtag POST">POST</span><span class="eurl">/batch/vote/{id}</span></div>
+          </div>
+          <div class="card">
+            <div class="card-hdr"><span class="card-hdr-t">Cast Validator Vote</span></div>
+            <div class="card-body">
+              <div class="fg">
+                <div class="fgrp"><label>Proposal ID *</label><input type="number" id="v-id" placeholder="1" min="0" /></div>
+                <div class="fgrp"><label>Validator Private Key *</label><input type="text" id="v-pk" placeholder="0x…" /></div>
+              </div>
+              <div class="factions"><button type="button" class="btn btn-p" onclick="doVote()">🗳 Cast Vote</button></div>
+              <div class="api-resp" id="v-resp"></div>
+            </div>
+          </div>
+        </div>
+        
+        <div id="panel-role" class="panel">
+          <div class="phdr">
+            <div class="ptitle">Check Wallet Role</div>
+            <div class="psub"><span class="mtag GET">GET</span><span class="eurl">/batch/user/role/{address}</span></div>
+          </div>
+          <div class="card">
+            <div class="card-hdr"><span class="card-hdr-t">Role Lookup</span></div>
+            <div class="card-body">
+              <div class="fg">
+                <div class="fgrp s2"><label>Wallet Address *</label><input type="text" id="cr-addr" placeholder="0x…" /></div>
+              </div>
+              <div class="factions"><button type="button" class="btn btn-g" onclick="doRole()">🔍 Lookup Role</button></div>
+              <div id="role-result" style="display:none;margin-top:1.25rem">
+                <div style="display:flex;align-items:center;gap:12px;padding:1rem 1.25rem;background:var(--faint);border:1px solid var(--border);border-radius:11px">
+                  <span style="font-family:'IBM Plex Mono',monospace;font-size:.75rem;color:var(--muted)">Role:</span>
+                  <span class="role-badge" id="role-badge">—</span>
+                  <span style="margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:.7rem;color:var(--muted)" id="role-short">—</span>
+                </div>
+              </div>
+              <div class="api-resp" id="cr-resp"></div>
+            </div>
+          </div>
+        </div>
+        
+        <div id="panel-dashboard" class="panel">
+          <div class="phdr">
+            <div class="ptitle">Dashboard</div>
+            <div class="psub">Quick batch lookup &amp; network overview</div>
+          </div>
+          <div class="stats-g">
+            <div class="scard"><div class="slbl">Total Batches</div><div class="sval ca">—</div></div>
+            <div class="scard"><div class="slbl">In Transit</div><div class="sval cw">—</div></div>
+            <div class="scard"><div class="slbl">At Pharmacy</div><div class="sval ca">—</div></div>
+            <div class="scard"><div class="slbl">Fully Sold</div><div class="sval">—</div></div>
+          </div>
+          <div class="card">
+            <div class="card-hdr"><span class="card-hdr-t">Quick Lookup</span></div>
+            <div class="card-body">
+              <div style="display:flex;gap:.75rem;align-items:flex-end;flex-wrap:wrap">
+                <div class="fgrp" style="flex:1;min-width:200px"><label>Batch ID</label><input type="text" id="dash-id" placeholder="MFG-2025-00142" /></div>
+                <button type="button" class="btn btn-g" onclick="dashLookup()">🔍 Fetch</button>
+              </div>
+              <div id="dash-result" style="margin-top:1rem"></div>
+            </div>
+          </div>
+        </div>
+        
+      </main>
+    </div>
+  </div>
+
+  <div class="toast-wrap" id="toasts"></div>
+
+  <div class="guest-toast" id="guest-toast">
+    <span>Unlock personalized allergy warnings and history.</span>
+    <button class="btn btn-sm btn-p" onclick="document.getElementById('auth-modal').classList.add('show')">Login for Best Experience</button>
+    <button class="btn-close-toast" onclick="document.getElementById('guest-toast').style.display='none'">✕</button>
+  </div>
+
+  <div id="auth-modal" class="allergy-modal">
+    <div class="allergy-content" style="max-width: 450px;">
+      <div class="verify-tabs" style="margin-bottom: 1.5rem;">
+        <button type="button" class="vtab active" onclick="switchAuthTab('patient', this)">Patient / User</button>
+        <button type="button" class="vtab" onclick="switchAuthTab('member', this)">Chain Member</button>
+      </div>
+      
+      <div id="auth-patient" class="vpanel active">
+        <h3 style="margin-bottom: 1rem; font-family: 'Playfair Display', serif;">Welcome to Rx-Block</h3>
+        <input type="text" id="pt-user" placeholder="Username" style="width: 100%; padding: 10px; border-radius: 8px; margin-bottom: 10px; background: var(--input-bg); border: 1px solid var(--border); color: var(--text);" />
+        <input type="password" id="pt-pass" placeholder="Password" style="width: 100%; padding: 10px; border-radius: 8px; margin-bottom: 1rem; background: var(--input-bg); border: 1px solid var(--border); color: var(--text);" />
+        <div style="display: flex; gap: 10px; flex-direction: column;">
+          <button class="btn btn-p" style="width: 100%; justify-content: center;" onclick="handlePatientLogin()">Login</button>
+          <button class="btn btn-g" style="width: 100%; justify-content: center;" onclick="handlePatientRegister()">Create New Account</button>
+        </div>
+      </div>
+      
+      <div id="auth-member" class="vpanel">
+        <h3 style="margin-bottom: 1rem; font-family: 'Playfair Display', serif;">Enterprise Access</h3>
+        <select id="cm-role" style="width: 100%; padding: 10px; border-radius: 8px; margin-bottom: 10px; background: var(--input-bg); border: 1px solid var(--border); color: var(--text);">
+          <option value="">Select your role...</option>
+          <option value="mfg">Manufacturer</option>
+          <option value="dist">Distributor</option>
+          <option value="pharm">Pharmacy</option>
+          <option value="gov">Government / Validator</option>
+        </select>
+        <input type="password" id="cm-pass" placeholder="Role Password (e.g., mfg123)" style="width: 100%; padding: 10px; border-radius: 8px; margin-bottom: 1rem; background: var(--input-bg); border: 1px solid var(--border); color: var(--text);" />
+        <button class="btn btn-warn" style="width: 100%; justify-content: center; background: var(--warn); color: #000;" onclick="handleMemberLogin()">Secure Login</button>
+      </div>
+      
+      <div style="text-align: right; margin-top: 15px;">
+        <button class="btn btn-sm" onclick="document.getElementById('auth-modal').classList.remove('show')">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
 </body>
 </html>

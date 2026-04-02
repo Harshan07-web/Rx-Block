@@ -10,7 +10,8 @@ from fastapi.staticfiles import StaticFiles
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Pharma Supply Chain")
-app.mount("/", StaticFiles(directory="D:\Rx-block\web-frontend", html=True), name="frontend")
+
+app.mount("/", StaticFiles(directory=r"D:\Rx-block\web-frontend", html=True), name="frontend")
 # Enable CORS so the HTML frontend can connect
 app.add_middleware(
     CORSMiddleware,
