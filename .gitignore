@@ -8,4 +8,4 @@ dist/
 .vscode/
 backend/rx_block.db
 __pycache__/
-backend\config\__pycache__
+*.pyc
