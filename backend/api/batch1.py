@@ -1,5 +1,5 @@
 import json
-from fastapi import APIRouter, HTTPException, Depends, Header
+from fastapi import APIRouter, HTTPException, Depends, Header, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -7,8 +7,8 @@ from typing import List, Optional
 
 from services.blockchain_service import blockchain 
 from services.qr import generate_secure_hash, generate_qr_image
-from database.database import get_db
-from models.batch_model import DrugBatch
+from database.database import get_db, engine
+from models.batch_model import DrugBatch, DrugItem, BatchStatus
 
 router = APIRouter()
 
@@ -18,11 +18,11 @@ ROLE_MAP = ["NONE", "TIER1_MANUFACTURER", "TIER2_MANUFACTURER", "DISTRIBUTOR", "
 
 class CreateBatchT1(BaseModel):
     batch_id : int
-    batch_quantity : int
-    manufacturer_name : str
     drug_name : str
+    manufacturer_name : str
     mfd : str
     exp : str
+    batch_quantity : int
     batch_drugs : List[str]
 
 class CreateBatchT2(BaseModel):
@@ -83,8 +83,29 @@ class SellDrugs(BaseModel):
     sold : bool
 
 @router.post("/create-drugs-t1")
-def Create_Batch_T1(create_batch_t1 : CreateBatchT1):
-    pass
+def Create_Batch_T1(create_batch_t1 : CreateBatchT1, db : Session = Depends(get_db)):
+    exists = db.query(DrugBatch).filter(DrugBatch.batch_id == create_batch_t1.batch_id).first()
+    if exists:
+        raise HTTPException(status_code= status.HTTP_409_CONFLICT ,detail="BatchId already exisits in the chain")
+    else:
+        try:
+            # unq_hash = hash.createhas()
+            batch_status = blockchain.get_role()
+            blockchain.create_batch(unq_hash, create_batch_t1.batch_id,batch_status)
+            new_batch = DrugBatch(
+                batch_id = create_batch_t1.batch_id,
+                drug_name = create_batch_t1.drug_name,
+                manufacturer_name = create_batch_t1.manufacturer_name,
+                mfd = create_batch_t1.mfd,
+                exp = create_batch_t1.exp,
+                created_at = datetime,
+                tot_drugs = create_batch_t1.batch_quantity,
+                ipfs_hash = "",
+                current_owner = ""
+            )
+
+        except:
+            pass
 
 @router.post("/create-drugs-t2")
 def Create_Batch_T2(create_batch_t2 : CreateBatchT2):
