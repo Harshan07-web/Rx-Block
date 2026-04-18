@@ -84,13 +84,7 @@ class SellDrugs(BaseModel):
 
 @router.post("/create-drugs-t1")
 def Create_Batch_T1(create_batch_t1 : CreateBatchT1):
-    batch_drug_id = []
-    for i in range(create_batch_t1.batch_quantity):
-        batch_drug_id.append(f"{create_batch_t1.batch_id}-D{i}")
-
-    create_batch_t1.batch_drugs = batch_drug_id
-
-    return create_batch_t1.batch_drugs
+    pass
 
 @router.post("/create-drugs-t2")
 def Create_Batch_T2(create_batch_t2 : CreateBatchT2):

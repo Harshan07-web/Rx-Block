@@ -7,10 +7,8 @@ load_dotenv()
 
 class BlockchainService:
     def __init__(self):
-        # Connect to Ganache
         self.w3 = Web3(Web3.HTTPProvider(os.getenv("RPC_URL", "http://127.0.0.1:7545")))
         
-        # Load the compiled Smart Contract ABI
         abi_path = os.path.join(os.path.dirname(__file__), "../smart-contract/abi.json")
         with open(abi_path, "r") as file:
             contract_abi = json.load(file)
@@ -20,11 +18,9 @@ class BlockchainService:
             abi=contract_abi
         )
         
-        # The master Manufacturer/Admin key for creating brand new batches
         self.admin_private_key = os.getenv("PRIVATE_KEY")
 
     def _send_transaction(self, func_call, private_key, gas_limit=2000000):
-        """Helper to handle the signing and sending of transactions to Ganache"""
         account = self.w3.eth.account.from_key(private_key)
         nonce = self.w3.eth.get_transaction_count(account.address)
         
@@ -33,7 +29,7 @@ class BlockchainService:
             'nonce': nonce,
             'gas': gas_limit,
             'gasPrice': self.w3.to_wei('20', 'gwei'),
-            'chainId': 1337  # Default Chain ID for Ganache
+            'chainId': 1337  
         })
         
         signed_tx = self.w3.eth.account.sign_transaction(tx, private_key=private_key)
@@ -80,12 +76,9 @@ class BlockchainService:
 
 
     def get_batch(self, batch_id):
-        """Reads a medicine batch's current status and history"""
         return self.contract.functions.getBatch(batch_id).call()
 
     def get_role(self, address):
-        """Checks the role level of a specific wallet address"""
         return self.contract.functions.roles(address).call()
 
-# Create a single instance that FastAPI will import and use
 blockchain = BlockchainService()

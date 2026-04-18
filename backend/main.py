@@ -1,13 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api.batch1 import router as batch_router
-from database.database import engine, Base
+from database.database import engine, base
 from fastapi.staticfiles import StaticFiles
 
-# Change the directory string to point to your new folder
 
-# Create database tables on startup
-Base.metadata.create_all(bind=engine)
+base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Pharma Supply Chain")
 
@@ -21,7 +19,6 @@ app = FastAPI(title="Pharma Supply Chain")
     allow_headers=["*"],
 )"""
 
-# Include the batch routes
 app.include_router(batch_router, prefix="/batch")
 
 @app.get("/")
