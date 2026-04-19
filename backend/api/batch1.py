@@ -181,7 +181,6 @@ async def Split_Batch(split: SplitBatch, db: Session = Depends(get_db)):
                 exp = parent_batch.exp,
                 tot_drugs = split.quantity_per_batch,
                 current_owner = split.new_owner_id,
-                blockchain_hash = child_hash 
             )
             db.add(new_child)
 
@@ -213,8 +212,32 @@ async def Split_Batch(split: SplitBatch, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Split failed: {str(e)}")
 
 @router.post("/ship-dist")
-def Send_To_Dist(send_dist : SendBatch):
-    blockchain.transfer_batch(send_dist.batch_id,send_dist.new_owner_address,send_dist.curr_owner_id)
+def Send_To_Dist(send_dist : SendBatch, db : Session = Depends(get_db)):
+    exists = db.query(DrugBatch).filter(DrugBatch.batch_id == Split_Batch.batch_id).first()
+    if not exists:
+        raise HTTPException(status_code=500,detail="Batch to transfer not found!")
+    try:
+        recepit = blockchain.transfer_batch(send_dist.batch_id,send_dist.new_owner_address,send_dist.curr_owner_id)
+        new_log = BatchStatus(
+            batch_id = send_dist.batch_id,
+            status = "DELIVERY TO DISTRIBUTOR",
+            location = send_dist.new_owner_address,
+            latitude = 1.213433,
+            longitude = 2.345345,
+            timestamp = datetime.now(timezone.utc)
+        )
+
+        db.add(new_log)
+        db.commit()
+
+        return{
+            "status" : "Success",
+            "message" : f"Transfer successfully initiated to{send_dist.new_owner_address}"
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500,detail=f"Failed to transfer batch {e}")
+
 
 @router.post("/receive-dist")
 def Receive_Dist(receive_dist : ReceiveAtDist):
