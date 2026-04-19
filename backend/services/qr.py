@@ -2,22 +2,15 @@ import qrcode
 import hashlib
 import io
 
-def generate_secure_hash(manufacturer: str, mfg_date: str) -> str:
-    """Creates a unique cryptographic hash to verify authenticity."""
-    data_string = f"{manufacturer}-{mfg_date}"
-    return hashlib.sha256(data_string.encode()).hexdigest()
-
-def generate_qr_image(batch_id: str, unique_hash: str) -> io.BytesIO:
-    """Generates a QR code image and returns it as a byte stream."""
+def generate_qr_image(identifier: str, is_batch: bool = True) -> io.BytesIO:
+    base_url = "http://192.168.20.76:5500/verify.html" 
     
-    base_url = "http://192.168.20.76:5500/rxblock (1).html" 
-    
-    # Embed the URL with the batch_id attached to the end
-    qr_data = f"{base_url}?batch_id={batch_id}"
+    param = "batch_id" if is_batch else "drug_id"
+    qr_data = f"{base_url}?{param}={identifier}"
     
     qr = qrcode.QRCode(
         version=1,
-        error_correction=qrcode.constants.ERROR_CORRECT_H, # High error correction for scanning
+        error_correction=qrcode.constants.ERROR_CORRECT_H, 
         box_size=10,
         border=4,
     )
@@ -26,9 +19,8 @@ def generate_qr_image(batch_id: str, unique_hash: str) -> io.BytesIO:
 
     img = qr.make_image(fill_color="black", back_color="white")
     
-    # Save the image to a buffer in memory so FastAPI can stream it back
     buffer = io.BytesIO()
     img.save(buffer, format="PNG")
-    buffer.seek(0) # Reset pointer to the start of the file
+    buffer.seek(0) 
     
     return buffer

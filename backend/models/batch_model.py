@@ -10,10 +10,11 @@ class DrugBatch(base):
     manufacturer_name = Column(VARCHAR(255))
     mfd  = Column(Date)
     exp = Column(Date)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime)
     tot_drugs = Column(Integer)
     ipfs_hash = Column(VARCHAR(255))
-    current_owner = Column(VARCHAR(255))
+    parent_batch_id = Column(VARCHAR(255), nullable=True)
+    is_active = Column(Boolean, default=True)
 
 class DrugItem(base):
     __tablename__ = "drug_info"

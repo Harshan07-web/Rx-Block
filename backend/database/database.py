@@ -20,7 +20,7 @@ engine = create_engine(DATABSE_URL)
 local_session = sessionmaker(autoflush=False,autocommit = False , bind= engine)
 
 def get_db():
-    db = local_session
+    db = local_session()
     try:
         yield db
     finally:
