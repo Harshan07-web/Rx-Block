@@ -2,25 +2,17 @@
   {
     "inputs": [
       {
-        "internalType": "string",
-        "name": "_id",
-        "type": "string"
-      }
-    ],
-    "name": "acceptAtPharmacy",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
+        "internalType": "address",
+        "name": "_account",
+        "type": "address"
+      },
       {
-        "internalType": "string",
-        "name": "_id",
-        "type": "string"
+        "internalType": "enum DrugSupply.Role",
+        "name": "_role",
+        "type": "uint8"
       }
     ],
-    "name": "acceptBatch",
+    "name": "assignRole",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -42,39 +34,14 @@
       {
         "indexed": true,
         "internalType": "address",
-        "name": "newOwner",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "enum DrugSupply.Status",
-        "name": "newStatus",
-        "type": "uint8"
-      }
-    ],
-    "name": "BatchAccepted",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "string",
-        "name": "id",
-        "type": "string"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
         "name": "manufacturer",
         "type": "address"
       },
       {
         "indexed": false,
-        "internalType": "uint256",
-        "name": "quantity",
-        "type": "uint256"
+        "internalType": "string",
+        "name": "dataHash",
+        "type": "string"
       }
     ],
     "name": "BatchCreated",
@@ -96,12 +63,6 @@
         "type": "string"
       },
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "to",
-        "type": "address"
-      },
-      {
         "indexed": false,
         "internalType": "uint256",
         "name": "quantity",
@@ -120,17 +81,7 @@
       },
       {
         "internalType": "string",
-        "name": "_mfgDate",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
-        "name": "_expDate",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
-        "name": "_ipfsHash",
+        "name": "_dataHash",
         "type": "string"
       },
       {
@@ -145,65 +96,28 @@
     "type": "function"
   },
   {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_candidate",
-        "type": "address"
-      },
-      {
-        "internalType": "enum DrugSupply.Role",
-        "name": "_role",
-        "type": "uint8"
-      }
-    ],
-    "name": "proposeCompany",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
     "anonymous": false,
     "inputs": [
       {
         "indexed": true,
-        "internalType": "address",
-        "name": "candidate",
-        "type": "address"
+        "internalType": "string",
+        "name": "batchId",
+        "type": "string"
       },
       {
-        "indexed": false,
-        "internalType": "enum DrugSupply.Role",
-        "name": "role",
-        "type": "uint8"
-      }
-    ],
-    "name": "RoleApproved",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
         "indexed": true,
-        "internalType": "uint256",
-        "name": "proposalId",
-        "type": "uint256"
+        "internalType": "string",
+        "name": "itemId",
+        "type": "string"
       },
       {
         "indexed": true,
         "internalType": "address",
-        "name": "candidate",
+        "name": "pharmacy",
         "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "enum DrugSupply.Role",
-        "name": "role",
-        "type": "uint8"
       }
     ],
-    "name": "RoleProposed",
+    "name": "ItemSold",
     "type": "event"
   },
   {
@@ -212,42 +126,9 @@
         "internalType": "string",
         "name": "_id",
         "type": "string"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_quantity",
-        "type": "uint256"
       }
     ],
-    "name": "sellUnits",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "string",
-        "name": "_parentId",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
-        "name": "_newId",
-        "type": "string"
-      },
-      {
-        "internalType": "address",
-        "name": "_to",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_quantity",
-        "type": "uint256"
-      }
-    ],
-    "name": "splitBatch",
+    "name": "receiveAtDistributor",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -258,14 +139,65 @@
         "internalType": "string",
         "name": "_id",
         "type": "string"
+      }
+    ],
+    "name": "receiveAtPharmacy",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "string",
+        "name": "id",
+        "type": "string"
       },
       {
+        "indexed": true,
         "internalType": "address",
-        "name": "_to",
+        "name": "distributor",
         "type": "address"
       }
     ],
-    "name": "transferBatch",
+    "name": "ReceivedAtDistributor",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "string",
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "pharmacy",
+        "type": "address"
+      }
+    ],
+    "name": "ReceivedAtPharmacy",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "_batchId",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "_itemId",
+        "type": "string"
+      }
+    ],
+    "name": "sellItem",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -292,8 +224,51 @@
         "type": "address"
       }
     ],
-    "name": "TransferInitiated",
+    "name": "ShippedToDistributor",
     "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "string",
+        "name": "id",
+        "type": "string"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "from",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      }
+    ],
+    "name": "ShippedToPharmacy",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "_id",
+        "type": "string"
+      },
+      {
+        "internalType": "address",
+        "name": "_distributor",
+        "type": "address"
+      }
+    ],
+    "name": "shipToDistributor",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
     "inputs": [
@@ -308,51 +283,35 @@
         "type": "address"
       }
     ],
-    "name": "transferToPharmacy",
+    "name": "shipToPharmacy",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
   },
   {
-    "anonymous": false,
     "inputs": [
       {
-        "indexed": true,
         "internalType": "string",
-        "name": "id",
+        "name": "_parentId",
         "type": "string"
       },
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "pharmacy",
-        "type": "address"
+        "internalType": "string",
+        "name": "_newId",
+        "type": "string"
       },
       {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "quantitySold",
-        "type": "uint256"
+        "internalType": "string",
+        "name": "_childHash",
+        "type": "string"
       },
       {
-        "indexed": false,
         "internalType": "uint256",
-        "name": "remainingQuantity",
+        "name": "_quantity",
         "type": "uint256"
       }
     ],
-    "name": "UnitsSold",
-    "type": "event"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_proposalId",
-        "type": "uint256"
-      }
-    ],
-    "name": "vote",
+    "name": "splitBatch",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -379,27 +338,12 @@
       },
       {
         "internalType": "string",
-        "name": "mfgDate",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
-        "name": "expDate",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
-        "name": "ipfsHash",
+        "name": "dataHash",
         "type": "string"
       },
       {
         "internalType": "uint256",
         "name": "totalQuantity",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "soldQuantity",
         "type": "uint256"
       },
       {
@@ -434,7 +378,7 @@
         "type": "string"
       }
     ],
-    "name": "getBatch",
+    "name": "getBatchData",
     "outputs": [
       {
         "components": [
@@ -450,27 +394,12 @@
           },
           {
             "internalType": "string",
-            "name": "mfgDate",
-            "type": "string"
-          },
-          {
-            "internalType": "string",
-            "name": "expDate",
-            "type": "string"
-          },
-          {
-            "internalType": "string",
-            "name": "ipfsHash",
+            "name": "dataHash",
             "type": "string"
           },
           {
             "internalType": "uint256",
             "name": "totalQuantity",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "soldQuantity",
             "type": "uint256"
           },
           {
@@ -503,26 +432,19 @@
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "owner",
-    "outputs": [
+    "inputs": [
       {
-        "internalType": "address",
+        "internalType": "string",
         "name": "",
-        "type": "address"
+        "type": "string"
       }
     ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "proposalCount",
+    "name": "isItemSold",
     "outputs": [
       {
-        "internalType": "uint256",
+        "internalType": "bool",
         "name": "",
-        "type": "uint256"
+        "type": "bool"
       }
     ],
     "stateMutability": "view",
@@ -531,32 +453,30 @@
   {
     "inputs": [
       {
-        "internalType": "uint256",
+        "internalType": "address",
         "name": "",
-        "type": "uint256"
+        "type": "address"
       }
     ],
-    "name": "proposals",
+    "name": "isValidator",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "owner",
     "outputs": [
       {
         "internalType": "address",
-        "name": "candidate",
+        "name": "",
         "type": "address"
-      },
-      {
-        "internalType": "enum DrugSupply.Role",
-        "name": "role",
-        "type": "uint8"
-      },
-      {
-        "internalType": "uint256",
-        "name": "votes",
-        "type": "uint256"
-      },
-      {
-        "internalType": "bool",
-        "name": "approved",
-        "type": "bool"
       }
     ],
     "stateMutability": "view",
@@ -582,45 +502,14 @@
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "validatorCount",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "VOTE_THRESHOLD",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      },
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
+        "internalType": "string",
+        "name": "_itemId",
+        "type": "string"
       }
     ],
-    "name": "voted",
+    "name": "verifyItem",
     "outputs": [
       {
         "internalType": "bool",

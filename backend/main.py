@@ -9,15 +9,13 @@ base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Pharma Supply Chain")
 
-#app.mount("/", StaticFiles(directory=r"D:\Rx-block\web-frontend", html=True), name="frontend")
-# Enable CORS so the HTML frontend can connect
-"""app.add_middleware(
+app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  
-    allow_credentials=True,  # <--- THIS MUST BE FALSE!
+    allow_credentials=True, 
     allow_methods=["*"],
     allow_headers=["*"],
-)"""
+)
 
 app.include_router(batch_router, prefix="/batch")
 

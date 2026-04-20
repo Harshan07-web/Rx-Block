@@ -11,8 +11,8 @@ def generate_secure_hash(data_dict : dict) -> str:
             else:
                 processed_data[key] = val
 
-
         json_string = json.dumps(processed_data, sort_keys=True, separators=(',',':'))
+        print(f"\n\n{json_string}\n\n")
         sha256 = hashlib.sha256()
         sha256.update(json_string.encode('utf-8'))
 

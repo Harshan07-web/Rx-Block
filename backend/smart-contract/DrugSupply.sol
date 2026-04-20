@@ -6,11 +6,9 @@ contract DrugSupply {
     // -----------------------------
     // ENUMS
     // -----------------------------
-
     enum Role {
         NONE,
-        TIER1_MANUFACTURER,
-        TIER2_MANUFACTURER,
+        MANUFACTURER,
         DISTRIBUTOR,
         PHARMACY,
         VALIDATOR
@@ -19,311 +17,241 @@ contract DrugSupply {
     enum Status {
         NONE,
         CREATED,
-        IN_DISTRIBUTION,
-        AT_DISTRIBUTOR, // Added: To track when it physically sits at the warehouse
+        IN_TRANSIT_TO_DIST,
+        AT_DISTRIBUTOR,
+        IN_TRANSIT_TO_PHARM,
         AT_PHARMACY,
-        SOLD
+        DEPLETED // Used when all units in a batch are sold or split
     }
 
     // -----------------------------
     // STRUCTS
     // -----------------------------
-
     struct Batch {
         string id;
-        string parentId;
-        string mfgDate;
-        string expDate;
-        string ipfsHash;
-
+        string parentId; // Empty for main batches, populated for splits
+        string dataHash; // The SHA-256 seal from your Python backend!
+        
         uint256 totalQuantity;
-        uint256 soldQuantity;
-
+        
         address currentOwner;
         address pendingOwner;
-
         Status status;
         bool exists;
-    }
-
-    struct Proposal {
-        address candidate;
-        Role role;
-        uint256 votes;
-        bool approved;
     }
 
     // -----------------------------
     // STORAGE
     // -----------------------------
-
     mapping(string => Batch) public batches;
     mapping(address => Role) public roles;
+    
+    // NEW: Unit-Level Traceability
+    // Maps a specific drug ID (e.g., "101-D15") to its sold status
+    mapping(string => bool) public isItemSold; 
 
-    mapping(uint256 => Proposal) public proposals;
-    mapping(uint256 => mapping(address => bool)) public voted;
-
-    uint256 public proposalCount;
-    uint256 public validatorCount;
-
-    uint256 public constant VOTE_THRESHOLD = 3;
-
+    // Governance
+    mapping(address => bool) public isValidator;
     address public owner;
 
     // -----------------------------
-    // EVENTS (Added for Backend/DB Syncing)
+    // EVENTS
     // -----------------------------
+    event BatchCreated(string indexed id, address indexed manufacturer, string dataHash);
+    event BatchSplit(string indexed parentId, string indexed newId, uint256 quantity);
     
-    event RoleProposed(uint256 indexed proposalId, address indexed candidate, Role role);
-    event RoleApproved(address indexed candidate, Role role);
-    event BatchCreated(string indexed id, address indexed manufacturer, uint256 quantity);
-    event BatchSplit(string indexed parentId, string indexed newId, address indexed to, uint256 quantity);
-    event TransferInitiated(string indexed id, address indexed from, address indexed to);
-    event BatchAccepted(string indexed id, address indexed newOwner, Status newStatus);
-    event UnitsSold(string indexed id, address indexed pharmacy, uint256 quantitySold, uint256 remainingQuantity);
+    event ShippedToDistributor(string indexed id, address indexed from, address indexed to);
+    event ReceivedAtDistributor(string indexed id, address indexed distributor);
+    
+    event ShippedToPharmacy(string indexed id, address indexed from, address indexed to);
+    event ReceivedAtPharmacy(string indexed id, address indexed pharmacy);
+    
+    event ItemSold(string indexed batchId, string indexed itemId, address indexed pharmacy);
 
     // -----------------------------
     // MODIFIERS
     // -----------------------------
+    modifier onlyRole(Role _role) {
+        require(roles[msg.sender] == _role, "Unauthorized role");
+        _;
+    }
 
-    modifier onlyValidator() {
-        require(roles[msg.sender] == Role.VALIDATOR, "Not validator");
+    modifier onlyBatchOwner(string memory _id) {
+        require(batches[_id].exists, "Batch does not exist");
+        require(batches[_id].currentOwner == msg.sender, "Not the current owner");
         _;
     }
 
     // -----------------------------
-    // CONSTRUCTOR (BOOTSTRAP)
+    // CONSTRUCTOR
     // -----------------------------
-
     constructor() {
         owner = msg.sender;
         roles[msg.sender] = Role.VALIDATOR;
-        validatorCount = 1;
+        isValidator[msg.sender] = true;
     }
 
     // -----------------------------
-    // GOVERNANCE
+    // GOVERNANCE (Simplified for Demo)
     // -----------------------------
-
-    function proposeCompany(address _candidate, Role _role) external onlyValidator {
-        // Bootstrap first 3 validators
-        if (_role == Role.VALIDATOR && validatorCount < 3) {
-            roles[_candidate] = Role.VALIDATOR;
-            validatorCount++;
-            emit RoleApproved(_candidate, _role);
-            return;
-        }
-
-        proposalCount++;
-
-        proposals[proposalCount] = Proposal({
-            candidate: _candidate,
-            role: _role,
-            votes: 0,
-            approved: false
-        });
-
-        emit RoleProposed(proposalCount, _candidate, _role);
-    }
-
-    function vote(uint256 _proposalId) external onlyValidator {
-        Proposal storage p = proposals[_proposalId];
-
-        require(!p.approved, "Already approved");
-        require(!voted[_proposalId][msg.sender], "Already voted");
-
-        voted[_proposalId][msg.sender] = true;
-        p.votes++;
-
-        if (p.votes >= VOTE_THRESHOLD) {
-            roles[p.candidate] = p.role;
-
-            if (p.role == Role.VALIDATOR) {
-                validatorCount++;
-            }
-
-            p.approved = true;
-            emit RoleApproved(p.candidate, p.role);
-        }
+    function assignRole(address _account, Role _role) external {
+        require(isValidator[msg.sender], "Only validators can assign roles");
+        roles[_account] = _role;
     }
 
     // -----------------------------
-    // CREATE BATCH
+    // 1. CREATION & SPLITTING
     // -----------------------------
-
     function createBatch(
         string memory _id,
-        string memory _mfgDate,
-        string memory _expDate,
-        string memory _ipfsHash,
+        string memory _dataHash,
         uint256 _quantity
-    ) external {
-        require(roles[msg.sender] == Role.TIER1_MANUFACTURER || roles[msg.sender] == Role.TIER2_MANUFACTURER, "Not manufacturer");
-        require(!batches[_id].exists, "Batch exists");
+    ) external onlyRole(Role.MANUFACTURER) {
+        require(!batches[_id].exists, "Batch ID already exists");
 
         batches[_id] = Batch({
             id: _id,
             parentId: "",
-            mfgDate: _mfgDate,
-            expDate: _expDate,
-            ipfsHash: _ipfsHash,
+            dataHash: _dataHash,
             totalQuantity: _quantity,
-            soldQuantity: 0,
             currentOwner: msg.sender,
             pendingOwner: address(0),
             status: Status.CREATED,
             exists: true
         });
 
-        emit BatchCreated(_id, msg.sender, _quantity);
+        emit BatchCreated(_id, msg.sender, _dataHash);
     }
-
-    // -----------------------------
-    // SPLIT BATCH (OPTIONAL)
-    // -----------------------------
 
     function splitBatch(
         string memory _parentId,
         string memory _newId,
-        address _to,
+        string memory _childHash,
         uint256 _quantity
-    ) external {
+    ) external onlyBatchOwner(_parentId) {
         Batch storage parent = batches[_parentId];
-
-        require(parent.exists, "Parent not found");
-        require(parent.currentOwner == msg.sender, "Not owner");
-        require(parent.totalQuantity >= _quantity, "Insufficient qty");
-        require(!batches[_newId].exists, "Already exists");
-        require(roles[_to] == Role.DISTRIBUTOR || roles[_to] == Role.PHARMACY, "Invalid recipient role");
-
+        
+        require(!batches[_newId].exists, "New Batch ID already exists");
+        require(parent.totalQuantity >= _quantity, "Insufficient quantity in parent");
+        
+        // Create the child batch
         batches[_newId] = Batch({
             id: _newId,
             parentId: _parentId,
-            mfgDate: parent.mfgDate,
-            expDate: parent.expDate,
-            ipfsHash: parent.ipfsHash,
+            dataHash: _childHash,
             totalQuantity: _quantity,
-            soldQuantity: 0,
             currentOwner: msg.sender,
-            pendingOwner: _to,
-            status: Status.IN_DISTRIBUTION,
+            pendingOwner: address(0),
+            status: parent.status, // Inherit current status
             exists: true
         });
 
+        // Deduct from parent
         parent.totalQuantity -= _quantity;
+        if (parent.totalQuantity == 0) {
+            parent.status = Status.DEPLETED;
+        }
 
-        emit BatchSplit(_parentId, _newId, _to, _quantity);
+        emit BatchSplit(_parentId, _newId, _quantity);
     }
 
     // -----------------------------
-    // TRANSFER FULL BATCH (NO SPLIT)
+    // 2. MANUFACTURER -> DISTRIBUTOR
     // -----------------------------
-
-    function transferBatch(
-        string memory _id,
-        address _to
-    ) external {
+    function shipToDistributor(string memory _id, address _distributor) 
+        external 
+        onlyBatchOwner(_id) 
+        onlyRole(Role.MANUFACTURER) 
+    {
+        require(roles[_distributor] == Role.DISTRIBUTOR, "Recipient is not a distributor");
+        
         Batch storage b = batches[_id];
+        b.pendingOwner = _distributor;
+        b.status = Status.IN_TRANSIT_TO_DIST;
 
-        require(b.exists, "Not found");
-        require(b.currentOwner == msg.sender, "Not owner");
-
-        b.pendingOwner = _to;
-        b.status = Status.IN_DISTRIBUTION;
-
-        emit TransferInitiated(_id, msg.sender, _to);
+        emit ShippedToDistributor(_id, msg.sender, _distributor);
     }
 
-    // -----------------------------
-    // ACCEPT OWNERSHIP
-    // -----------------------------
-
-    function acceptBatch(string memory _id) external {
+    function receiveAtDistributor(string memory _id) 
+        external 
+        onlyRole(Role.DISTRIBUTOR) 
+    {
         Batch storage b = batches[_id];
-
-        require(b.exists, "Not found");
-        require(b.pendingOwner == msg.sender, "Not authorized");
+        require(b.pendingOwner == msg.sender, "You are not the pending owner");
+        require(b.status == Status.IN_TRANSIT_TO_DIST, "Batch not in transit to distributor");
 
         b.currentOwner = msg.sender;
         b.pendingOwner = address(0);
+        b.status = Status.AT_DISTRIBUTOR;
 
-        // Update status based on who is accepting it
-        if (roles[msg.sender] == Role.DISTRIBUTOR) {
-            b.status = Status.AT_DISTRIBUTOR;
-        } else {
-            b.status = Status.IN_DISTRIBUTION;
-        }
-
-        emit BatchAccepted(_id, msg.sender, b.status);
+        emit ReceivedAtDistributor(_id, msg.sender);
     }
 
     // -----------------------------
-    // TRANSFER TO PHARMACY
+    // 3. DISTRIBUTOR -> PHARMACY
     // -----------------------------
-
-    function transferToPharmacy(
-        string memory _id,
-        address _pharmacy
-    ) external {
+    function shipToPharmacy(string memory _id, address _pharmacy) 
+        external 
+        onlyBatchOwner(_id) 
+        onlyRole(Role.DISTRIBUTOR) 
+    {
+        require(roles[_pharmacy] == Role.PHARMACY, "Recipient is not a pharmacy");
+        
         Batch storage b = batches[_id];
-
-        require(b.exists, "Not found");
-        require(b.currentOwner == msg.sender, "Not owner");
-        require(roles[_pharmacy] == Role.PHARMACY, "Invalid pharmacy");
-
         b.pendingOwner = _pharmacy;
-        b.status = Status.IN_DISTRIBUTION;
+        b.status = Status.IN_TRANSIT_TO_PHARM;
 
-        emit TransferInitiated(_id, msg.sender, _pharmacy);
+        emit ShippedToPharmacy(_id, msg.sender, _pharmacy);
     }
 
-    // -----------------------------
-    // FINAL ACCEPT (PHARMACY)
-    // -----------------------------
-
-    function acceptAtPharmacy(string memory _id) external {
+    function receiveAtPharmacy(string memory _id) 
+        external 
+        onlyRole(Role.PHARMACY) 
+    {
         Batch storage b = batches[_id];
-
-        require(b.pendingOwner == msg.sender, "Not authorized");
-        require(roles[msg.sender] == Role.PHARMACY, "Only pharmacy can call");
+        require(b.pendingOwner == msg.sender, "You are not the pending owner");
+        require(b.status == Status.IN_TRANSIT_TO_PHARM, "Batch not in transit to pharmacy");
 
         b.currentOwner = msg.sender;
         b.pendingOwner = address(0);
         b.status = Status.AT_PHARMACY;
 
-        emit BatchAccepted(_id, msg.sender, b.status);
+        emit ReceivedAtPharmacy(_id, msg.sender);
     }
 
     // -----------------------------
-    // SELL UNITS
+    // 4. UNIT-LEVEL SALE (PHARMACY ONLY)
     // -----------------------------
+    function sellItem(string memory _batchId, string memory _itemId) 
+        external 
+        onlyBatchOwner(_batchId) 
+        onlyRole(Role.PHARMACY) 
+    {
+        Batch storage b = batches[_batchId];
+        require(b.status == Status.AT_PHARMACY, "Batch is not at pharmacy");
+        require(!isItemSold[_itemId], "This specific unit is already sold!");
 
-    function sellUnits(string memory _id, uint256 _quantity) external {
-        Batch storage b = batches[_id];
+        // Mark the individual strip as sold
+        isItemSold[_itemId] = true;
 
-        require(b.exists, "Not found");
-        require(roles[msg.sender] == Role.PHARMACY, "Not pharmacy");
-        require(b.currentOwner == msg.sender, "Not owner");
-        require(b.status == Status.AT_PHARMACY, "Not at pharmacy");
-
-        require(b.soldQuantity + _quantity <= b.totalQuantity, "Exceeds quantity");
-
-        b.soldQuantity += _quantity;
-
-        if (b.soldQuantity == b.totalQuantity) {
-            b.status = Status.SOLD;
+        // Deduct from the batch tracking
+        b.totalQuantity -= 1;
+        if (b.totalQuantity == 0) {
+            b.status = Status.DEPLETED;
         }
 
-        uint256 remaining = b.totalQuantity - b.soldQuantity;
-        emit UnitsSold(_id, msg.sender, _quantity, remaining);
+        emit ItemSold(_batchId, _itemId, msg.sender);
     }
 
     // -----------------------------
-    // VIEW
+    // VIEW FUNCTIONS
     // -----------------------------
-
-    function getBatch(string memory _id) external view returns (Batch memory) {
-        require(batches[_id].exists, "Not found");
+    function getBatchData(string memory _id) external view returns (Batch memory) {
+        require(batches[_id].exists, "Batch not found");
         return batches[_id];
+    }
+    
+    function verifyItem(string memory _itemId) external view returns (bool) {
+        return isItemSold[_itemId];
     }
 }

@@ -30,6 +30,6 @@ class BatchStatus(base):
     batch_id = Column(VARCHAR(255), ForeignKey("batch_info.batch_id"))
     status = Column(VARCHAR(255))
     location = Column(VARCHAR(255))
-    latitude = Column(Float)
-    longitude = Column(Float)
+    lat = Column(Float)
+    lng = Column(Float)
     timestamp = Column(DateTime)
