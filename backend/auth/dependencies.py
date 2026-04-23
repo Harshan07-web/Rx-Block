@@ -7,6 +7,7 @@ from jose import jwt, JWTError
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 from auth.auth_database import local_session
+from auth.auth_models import User
  
 load_dotenv()
  
@@ -56,7 +57,6 @@ def get_authed_user(*allowed_roles: str):
         current_user: dict = Depends(require_role(*allowed_roles)),
         auth_db: Session    = Depends(_get_auth_db),
     ):
-        from models import User  # local import avoids circular deps
         user = auth_db.query(User).filter(User.id == current_user["user_id"]).first()
         if not user:
             raise HTTPException(status_code=404, detail="Authenticated user record not found")
