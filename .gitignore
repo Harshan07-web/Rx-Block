@@ -10,3 +10,4 @@ backend/rx_block.db
 __pycache__/
 *.pyc
 ntest.py
+key.py
