@@ -3,18 +3,17 @@ from enum import Enum
 
 class ChainRole(str, Enum):
     MANUFACTURER = "MANUFACTURER"
-    DISTRIBUTOR  = "DISTRIBUTOR"
-    PHARMACY     = "PHARMACY"
-    VALIDATOR    = "VALIDATOR"
-
+    DISTRIBUTOR = "DISTRIBUTOR"
+    PHARMACY = "PHARMACY"
+    VALIDATOR = "VALIDATOR"
+    PATIENT = "PATIENT"
 
 class NewUser(BaseModel):
-    username:    str
-    email:       EmailStr
-    password:    str
-    role:        ChainRole
-    private_key: str
-
+    username: str
+    email: EmailStr
+    password: str
+    role:ChainRole
+    private_key:str           
     @field_validator("username")
     @classmethod
     def username_no_spaces(cls, v: str) -> str:
@@ -37,16 +36,21 @@ class UserLogin(BaseModel):
 
 class TokenResponse(BaseModel):
     access_token: str
-    token_type:   str = "bearer"
-    role:         str
-    username:     str
+    token_type: str = "bearer"
+    role: str
+    username:str
 
 
 class UserPublic(BaseModel):
-    id:       int
+    id:  int
     username: str
-    email:    str
-    role:     str
+    email:str
+    role: str
 
     class Config:
         from_attributes = True
+
+class New_Patient(BaseModel):
+    username: str
+    email : EmailStr
+    password : str

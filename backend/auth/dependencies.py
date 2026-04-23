@@ -71,3 +71,5 @@ def _get_auth_db():
         yield db
     finally:
         db.close()
+
+        

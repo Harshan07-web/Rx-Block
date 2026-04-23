@@ -2,23 +2,23 @@
 <html lang="en" data-theme="light">
 <head>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Rx-Block · Pharmaceutical Supply Chain</title>
-  
+
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Sora:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,700;0,900;1,700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css">
 
   <script>
-    (function() {
+    (function () {
       function tryLoad(urls, i) {
         if (i >= urls.length) return;
         var s = document.createElement('script');
         s.src = urls[i];
-        s.onerror = function() { tryLoad(urls, i + 1); };
+        s.onerror = function () { tryLoad(urls, i + 1); };
         document.head.appendChild(s);
       }
       tryLoad([
@@ -28,6 +28,106 @@
       ], 0);
     })();
   </script>
+
+  <!-- ═══════════════════════════════════════════════════════════════
+       ADMIN PANEL STYLES — classes used in HTML but missing from style.css
+       ═══════════════════════════════════════════════════════════════ -->
+  <style>
+    /* Panel show/hide */
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* API response box */
+    .api-resp { display: none; margin-top: 1rem; padding: 1rem 1.25rem; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 0.73rem; white-space: pre-wrap; word-break: break-all; line-height: 1.6; }
+    .api-resp.show { display: block; }
+    .api-resp.ok  { border-color: var(--safe-bd);   color: var(--safe);   background: var(--safe-bg); }
+    .api-resp.er  { border-color: var(--danger-bd); color: var(--danger); background: var(--danger-bg); }
+
+    /* Form field row */
+    .fld { display: flex; flex-direction: column; gap: 6px; margin-bottom: 1rem; }
+    .fld label { font-family: 'IBM Plex Mono', monospace; font-size: 0.62rem; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+    .fld input, .fld select { padding: 10px 14px; background: var(--input-bg); border: 1px solid var(--border); border-radius: 9px; color: var(--text); font-family: 'Sora', sans-serif; font-size: 0.84rem; outline: none; transition: border-color .2s, box-shadow .2s; width: 100%; }
+    .fld input:focus, .fld select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
+    .fld input[type="file"] { padding: 8px 12px; cursor: pointer; }
+    .fld-hint { font-size: 0.7rem; color: var(--muted); margin-top: 3px; font-family: 'IBM Plex Mono', monospace; }
+
+    /* Two-column grid for forms */
+    .fld-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1.5rem; }
+    @media (max-width: 640px) { .fld-grid { grid-template-columns: 1fr; } }
+
+    /* Button row */
+    .factions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 1rem; }
+
+    /* Cards */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; margin-bottom: 1.5rem; }
+    .card-hdr { padding: 1rem 1.5rem; background: var(--surface2); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+    .card-hdr-t { font-weight: 600; font-size: 0.9rem; }
+    .card-body { padding: 1.5rem; }
+
+    /* Config bar (API URL) */
+    .cfg-bar { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 1.5rem; font-family: 'IBM Plex Mono', monospace; font-size: 0.73rem; color: var(--muted); }
+    .cfg-bar input { flex: 1; padding: 6px 10px; background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: 'IBM Plex Mono', monospace; font-size: 0.76rem; outline: none; }
+    .cfg-bar input:focus { border-color: var(--accent); }
+
+    /* Sidebar items */
+    .sb-lbl  { font-family: 'IBM Plex Mono', monospace; font-size: 0.6rem; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; color: var(--muted); padding: 1rem 1rem 0.4rem; }
+    .sb-item { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; background: transparent; border: none; padding: 10px 1rem; font-size: 0.84rem; font-weight: 500; color: var(--text2); cursor: pointer; font-family: 'Sora', sans-serif; border-radius: 9px; transition: all 0.2s; }
+    .sb-item:hover { background: var(--faint); color: var(--accent); }
+    .sb-item.active { background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent-bd); }
+    .sb-icon { width: 6px; height: 6px; border-radius: 50%; background: var(--border2); flex-shrink: 0; transition: background 0.2s; }
+    .sb-item.active .sb-icon, .sb-item:hover .sb-icon { background: var(--accent); }
+    .sb-badge { margin-left: auto; background: var(--warn); color: #000; font-size: 0.6rem; font-weight: 700; padding: 2px 7px; border-radius: 50px; }
+
+    /* QR result box */
+    .qr-result { display: none; margin-top: 1.5rem; text-align: center; padding: 1.5rem; background: var(--surface2); border: 1px solid var(--safe-bd); border-radius: 12px; }
+    .qr-result.show { display: block; }
+    .qr-result img { max-width: 200px; border: 2px solid var(--accent-bd); border-radius: 12px; padding: 8px; background: white; margin-bottom: 0.75rem; }
+    .tx-info { font-family: 'IBM Plex Mono', monospace; font-size: 0.68rem; color: var(--muted); margin-top: 6px; word-break: break-all; }
+
+    /* Status / role badges */
+    .role-badge { font-family: 'IBM Plex Mono', monospace; font-size: 0.6rem; letter-spacing: 1.5px; text-transform: uppercase; padding: 4px 10px; border-radius: 6px; font-weight: 700; }
+    .r-TIER1_MANUFACTURER { background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent-bd); }
+    .r-DISTRIBUTOR { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn-bd); }
+    .r-PHARMACY    { background: var(--safe-bg);  color: var(--safe);  border: 1px solid var(--safe-bd); }
+    .r-VALIDATOR   { background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger-bd); }
+
+    .s-CREATED      { background: var(--safe-bg);   color: var(--safe);   border: 1px solid var(--safe-bd); }
+    .s-IN_DISTRIBUTION { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn-bd); }
+    .s-AT_DISTRIBUTOR  { background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent-bd); }
+    .s-AT_PHARMACY     { background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent-bd); }
+    .s-SOLD   { background: var(--faint);      color: var(--muted);  border: 1px solid var(--border); }
+    .s-UNKNOWN { background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger-bd); }
+
+    /* Companies grid */
+    .companies-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; padding: 1.5rem; max-width: 1200px; margin: 0 auto 4rem; }
+    .company-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+    .company-card img { width: 100%; height: 160px; object-fit: cover; }
+    .company-body { padding: 1.5rem; }
+    .company-body h3 { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem; }
+    .company-body p  { font-size: 0.83rem; color: var(--text2); line-height: 1.6; }
+
+    /* Stats/Health Hub */
+    .stats-g { display: grid; gap: 1rem; margin-bottom: 1.5rem; }
+    .scard { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem 1.5rem; }
+    .slbl { font-family: 'IBM Plex Mono', monospace; font-size: 0.62rem; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+    .sval { font-size: 2rem; font-weight: 700; }
+    .ca { color: var(--accent); } .cw { color: var(--warn); }
+
+    /* Tag chips */
+    .tchip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 6px; font-size: 0.76rem; margin: 2px; }
+    .tchip-w { background: var(--warn-bg);   color: var(--warn);   border: 1px solid var(--warn-bd); }
+    .tchip-d { background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger-bd); }
+    .tchip button { background: none; border: none; cursor: pointer; color: inherit; font-size: 0.7rem; padding: 0; }
+
+    /* Panel section divider */
+    .p-section { font-family: 'IBM Plex Mono', monospace; font-size: 0.62rem; letter-spacing: 2.5px; text-transform: uppercase; color: var(--muted); margin: 1.5rem 0 0.75rem; font-weight: 700; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); }
+
+    /* Placeholder panel */
+    .placeholder-panel { text-align: center; padding: 3rem 2rem; color: var(--muted); }
+    .placeholder-panel .ph-icon { font-size: 3rem; margin-bottom: 1rem; }
+    .placeholder-panel h3 { font-family: 'Playfair Display', serif; margin-bottom: 0.5rem; color: var(--text2); }
+    .placeholder-panel p { font-size: 0.85rem; line-height: 1.7; }
+  </style>
 </head>
 <body>
 
@@ -45,15 +145,15 @@
       <button class="gm-item" onclick="switchPage('public'); toggleGlobalMenu()">🔍 Verify Medicine</button>
       <button class="gm-item pt-only" onclick="switchPage('stats'); toggleGlobalMenu()">📊 My Health Hub</button>
       <button class="gm-item pt-only" onclick="alert('Coming Soon: Scan History!'); toggleGlobalMenu()">📋 My Scan History</button>
-      
+
       <div class="gm-label">Network</div>
       <button class="gm-item" onclick="switchPage('companies'); toggleGlobalMenu()">🏢 Verified Companies</button>
       <button class="gm-item" onclick="alert('Coming Soon: Recall Alerts!'); toggleGlobalMenu()">🚨 Global Recall Alerts</button>
-      
+
       <div class="gm-label">Support & Settings</div>
       <button class="gm-item" onclick="window.open('https://wa.me/917358639093', '_blank')">💬 Ask a Pharmacist</button>
       <button class="gm-item" onclick="switchPage('settings'); toggleGlobalMenu()">⚙️ Settings</button>
-      
+
       <div class="gm-divider" id="gm-admin-div"></div>
       <button class="gm-item" id="gm-admin-btn" style="color: var(--accent); display:none;" onclick="switchPage('admin'); toggleGlobalMenu()">💼 Enterprise Workspace</button>
     </div>
@@ -63,18 +163,16 @@
     <div class="nav-left">
       <button class="hamburger-btn" id="nav-hamburger" style="display:none;" onclick="toggleGlobalMenu()">☰</button>
       <div class="logo"><span class="lpulse"></span>Rx-Block</div>
-      
       <div id="nav-user-container" style="display:none; align-items:center; gap:12px; margin-left: 8px;">
-          <div class="nav-sep" style="display:block; height: 18px; margin: 0 4px;"></div>
-          <button id="nav-user-profile-btn" style="display:flex; align-items:center; gap:6px; border:none; background:transparent; padding:0; cursor:pointer;" onclick="goToProfile()">
-              <span style="font-size: 1.1rem;">👤</span>
-              <span id="top-username" style="font-weight: 600; color: var(--accent); font-family: 'Sora', sans-serif; font-size: 0.9rem;">User</span>
-          </button>
+        <div class="nav-sep" style="display:block; height: 18px; margin: 0 4px;"></div>
+        <button id="nav-user-profile-btn" style="display:flex; align-items:center; gap:6px; border:none; background:transparent; padding:0; cursor:pointer;" onclick="goToProfile()">
+          <span style="font-size: 1.1rem;">👤</span>
+          <span id="top-username" style="font-weight: 600; color: var(--accent); font-family: 'Sora', sans-serif; font-size: 0.9rem;">User</span>
+        </button>
       </div>
     </div>
-    
     <div style="display: flex; align-items: center;">
-      <button type="button" class="btn btn-sm btn-p" id="nav-login-btn" onclick="document.getElementById('auth-modal').classList.add('show')">Sign In</button>
+      <button type="button" class="btn btn-sm btn-p" id="nav-login-btn" style="display: none;" onclick="document.getElementById('auth-modal').classList.add('show')">Sign In</button>
     </div>
   </nav>
 
@@ -86,26 +184,56 @@
     </div>
   </div>
 
-  <div id="page-public" class="page active">
-    <div class="page-public-inner" id="public-inner">
+  <div id="page-landing" class="page active">
+    <div class="hero" style="max-width: 900px; padding-top: 4rem;">
+      <div class="hero-badge">Welcome to Rx-Block</div>
+      <h1 class="hero-title">Transparent. Secure.<br /><em>Immutable Healthcare.</em></h1>
+      <p class="hero-sub">Our Enterprise Blockchain ensures every medication is tracked from the factory floor to the patient's hands, eliminating counterfeits and guaranteeing safety.</p>
       
+      <div style="display: flex; gap: 15px; justify-content: center; margin-bottom: 4rem;">
+        
+        <button class="btn btn-p" style="padding: 14px 28px; font-size: 1rem;" onclick="openSpecificLogin('patient')">
+          Public / Patient Login
+        </button>
+        
+        <button class="btn btn-g" style="padding: 14px 28px; font-size: 1rem;" onclick="openSpecificLogin('member')">
+          Enterprise Login
+        </button>
+
+      </div>
+
+      <div class="sec-lbl" style="text-align: center; margin-bottom: 2rem;">How It Works</div>
+      <div class="tl" style="max-width: 700px; margin: 0 auto;">
+        <div class="tl-step"><div class="tl-dot done" style="border-color: var(--accent); color: var(--accent)">1</div><div class="tl-lbl on">Manufacturer<br>Registers Batch</div></div>
+        <div class="tl-step"><div class="tl-dot done" style="border-color: var(--accent); color: var(--accent)">2</div><div class="tl-lbl on">Distributor<br>Transports</div></div>
+        <div class="tl-step"><div class="tl-dot done" style="border-color: var(--accent); color: var(--accent)">3</div><div class="tl-lbl on">Pharmacy<br>Receives</div></div>
+        <div class="tl-step"><div class="tl-dot done" style="border-color: var(--accent); color: var(--accent)">4</div><div class="tl-lbl on">Patient<br>Verifies</div></div>
+      </div>
+    </div>
+  </div>
+  <!-- ═══════════════════════════════════════════════════════
+       PUBLIC VERIFY PAGE
+       ═══════════════════════════════════════════════════════ -->
+  <div id="page-public" class="page">
+    <div class="page-public-inner" id="public-inner">
+
       <div class="hero">
         <div class="hero-badge"><span class="lpulse" style="width:6px;height:6px"></span>Blockchain Verified Network</div>
-        <h1 class="hero-title">Verify your<br/><em>medicine</em> is real.</h1>
+        <h1 class="hero-title">Verify your<br /><em>medicine</em> is real.</h1>
         <p class="hero-sub">Scan or enter a batch ID to verify authenticity, ownership chain, and supply journey — recorded immutably on-chain.</p>
-        
+
         <div class="verify-tabs">
           <button type="button" class="vtab active" onclick="switchVerify('text',this)">Enter Batch ID</button>
           <button type="button" class="vtab" onclick="switchVerify('qr',this)">Upload QR Code</button>
         </div>
-        
+
         <div class="vpanel active" id="vp-text">
           <div class="sbox">
-            <input type="text" id="pub-id" placeholder="e.g. MFG-2025-00142" onkeydown="if(event.key==='Enter')lookupBatch()" />
+            <input type="text" id="pub-id" placeholder="e.g. BATCH-2025-001 or TEST-001" onkeydown="if(event.key==='Enter')lookupBatch()" />
             <button type="button" class="sbtn" onclick="lookupBatch()">Verify →</button>
           </div>
         </div>
-        
+
         <div class="vpanel" id="vp-qr">
           <canvas id="qr-canvas" style="display:none"></canvas>
           <div class="drop-zone" id="drop-zone" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleQRDrop(event)">
@@ -129,11 +257,11 @@
           </div>
         </div>
       </div>
-      
+
       <div class="result-area" id="result-area">
         <div class="loader" id="pub-loader"><div class="spinner"></div></div>
         <div style="width:100%; padding:0 1.5rem;"><div class="err-msg" id="pub-err"></div></div>
-        
+
         <div class="result-wrap">
           <div class="result-card" id="result-card">
             <div class="rc-hdr">
@@ -148,7 +276,7 @@
               <span class="auth-lbl" id="res-albl">Checking…</span>
               <span style="margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:.7rem;color:var(--muted)" id="res-mfr">—</span>
             </div>
-            
+
             <div id="res-allergy-alert" style="display:none; padding: 1rem 1.75rem; background: var(--danger-bg); border-bottom: 1px solid var(--danger-bd); color: var(--danger); align-items: center; gap: 12px;">
               <span style="font-size: 1.8rem;">🚨</span>
               <div>
@@ -169,12 +297,11 @@
                 🚨 Report Fake & Claim Bounty
               </button>
             </div>
-            
+
             <div class="result-split" id="res-split-body">
               <div class="split-left">
                 <div class="sec-lbl">Supply Chain Journey</div>
-
-               <div class="map-wrapper" id="map-wrapper">
+                <div class="map-wrapper" id="map-wrapper">
                   <div class="map-controls">
                     <span class="map-status-pill"><span class="lpulse"></span> Secure Route Verified</span>
                     <button class="btn btn-sm btn-p" id="map-expand-btn" onclick="toggleMapExpansion()">
@@ -191,14 +318,14 @@
                   <div class="tl-step"><div class="tl-dot" id="tl-AT_PHARMACY">🏥</div><div class="tl-lbl" id="tll-AT_PHARMACY">Pharmacy</div></div>
                   <div class="tl-step"><div class="tl-dot" id="tl-SOLD">✅</div><div class="tl-lbl" id="tll-SOLD">Sold</div></div>
                 </div>
-                
+
                 <div class="rc-grid" style="border: 1px solid var(--border); border-radius: 8px; overflow: hidden;">
                   <div class="rc-cell"><div class="clbl">Current Owner</div><div class="cval mono" id="res-owner">—</div></div>
                   <div class="rc-cell"><div class="clbl">Mfg Date</div><div class="cval" id="res-mfg">—</div></div>
                   <div class="rc-cell"><div class="clbl">Expiry Date</div><div class="cval" id="res-exp">—</div></div>
                 </div>
               </div>
-              
+
               <div class="split-right" style="background: var(--surface2); padding: 1.25rem; border-radius: 12px; border: 1px solid var(--border); display: flex; flex-direction: column;">
                 <div style="margin-bottom: 1.5rem;" id="res-info">
                   <div class="clbl">Side Effects</div>
@@ -206,20 +333,17 @@
                   <div class="clbl">Allergy Warnings</div>
                   <div class="tag-list" id="res-al"></div>
                 </div>
-                
                 <div style="margin-top: auto;">
                   <div class="clbl">Regulatory</div>
                   <button class="btn btn-g btn-sm" style="width: 100%; margin-top: 5px; justify-content: center; background: var(--surface); margin-bottom: 1rem;" onclick="alert('Demo: Opening IPFS License Document...')">
                     📄 View Mfg License
                   </button>
-
                   <div class="clbl" style="color: var(--accent);">Medication Tools</div>
                   <button class="btn btn-p btn-sm" style="width: 100%; margin-top: 5px; justify-content: center; background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent-bd);" onclick="setupReminders()">
                     🔔 Setup Smart Reminders
                   </button>
                 </div>
               </div>
-
             </div>
           </div>
         </div>
@@ -227,6 +351,9 @@
     </div>
   </div>
 
+  <!-- ═══════════════════════════════════════════════════════
+       VERIFIED COMPANIES PAGE
+       ═══════════════════════════════════════════════════════ -->
   <div id="page-companies" class="page">
     <div class="hero" style="padding-bottom: 1rem;">
       <h1 class="hero-title">Verified <em>Network</em></h1>
@@ -271,6 +398,9 @@
     </div>
   </div>
 
+  <!-- ═══════════════════════════════════════════════════════
+       HEALTH HUB PAGE
+       ═══════════════════════════════════════════════════════ -->
   <div id="page-stats" class="page">
     <div class="hero" style="padding-bottom: 1rem;">
       <h1 class="hero-title">My <em>Health</em> Hub</h1>
@@ -285,13 +415,16 @@
         <div class="card-hdr"><span class="card-hdr-t">Medical & Allergy Profile</span></div>
         <div class="card-body">
           <p style="font-size: 0.8rem; color: var(--muted); margin-bottom: 1rem;">Enter your known allergies (comma separated). If you scan a medicine containing these, the system will alert you.</p>
-          <input type="text" id="page-allergies" placeholder="e.g. Penicillin, Sulfa, Paracetamol" style="width: 100%; margin-bottom: 1rem;">
+          <input type="text" id="page-allergies" placeholder="e.g. Penicillin, Sulfa, Paracetamol" style="width: 100%; margin-bottom: 1rem; padding: 10px 14px; background: var(--input-bg); border: 1px solid var(--border); border-radius: 9px; color: var(--text); font-size: 0.85rem; outline: none;">
           <button class="btn btn-p" onclick="saveAllergiesFromPage()">Save Profile to Device</button>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- ═══════════════════════════════════════════════════════
+       SETTINGS PAGE
+       ═══════════════════════════════════════════════════════ -->
   <div id="page-settings" class="page">
     <div class="hero" style="padding-bottom: 1rem;">
       <h1 class="hero-title">Account <em>Settings</em></h1>
@@ -316,66 +449,465 @@
     </div>
   </div>
 
+  <!-- ═══════════════════════════════════════════════════════
+       ADMIN / ENTERPRISE WORKSPACE
+       ═══════════════════════════════════════════════════════ -->
   <div id="page-admin" class="page">
     <div class="admin-layout">
       <aside class="sidebar">
-        <div class="sb-lbl" data-roles="mfg">Manufacturer</div>
-        <button type="button" class="sb-item active" data-roles="mfg" onclick="showPanel('create',this)"><span class="sb-icon"></span>Create Batch</button>
-        
-        <div class="sb-lbl" data-roles="mfg,dist,pharm">Supply Chain</div>
-        <button type="button" class="sb-item" data-roles="mfg,dist" onclick="showPanel('transfer',this)"><span class="sb-icon"></span>Transfer Batch</button>
-        <button type="button" class="sb-item" data-roles="dist" onclick="showPanel('accept',this)"><span class="sb-icon"></span>Accept Delivery<span class="sb-badge">!</span></button>
-        <button type="button" class="sb-item" data-roles="mfg,dist" onclick="showPanel('split',this)"><span class="sb-icon"></span>Split Batch</button>
-        <button type="button" class="sb-item" data-roles="dist" onclick="showPanel('transfer-pharmacy',this)"><span class="sb-icon"></span>To Pharmacy</button>
-        <button type="button" class="sb-item" data-roles="pharm" onclick="showPanel('pharmacy-accept',this)"><span class="sb-icon"></span>Pharm Accept<span class="sb-badge">!</span></button>
-        <button type="button" class="sb-item" data-roles="pharm" onclick="showPanel('sell',this)"><span class="sb-icon"></span>Sell Units</button>
-        
+        <div class="sb-lbl" data-roles="MANUFACTURER">Manufacturer</div>
+        <button type="button" class="sb-item active" data-roles="MANUFACTURER" onclick="showPanel('create',this)"><span class="sb-icon"></span>Create Batch</button>
+
+        <div class="sb-lbl" data-roles="MANUFACTURER,DISTRIBUTOR,PHARMACY">Supply Chain</div>
+        <button type="button" class="sb-item" data-roles="MANUFACTURER,DISTRIBUTOR" onclick="showPanel('transfer',this)"><span class="sb-icon"></span>Transfer Batch</button>
+        <button type="button" class="sb-item" data-roles="DISTRIBUTOR" onclick="showPanel('accept',this)"><span class="sb-icon"></span>Accept Delivery</button>
+        <button type="button" class="sb-item" data-roles="MANUFACTURER,DISTRIBUTOR" onclick="showPanel('split',this)"><span class="sb-icon"></span>Split Batch</button>
+        <button type="button" class="sb-item" data-roles="DISTRIBUTOR" onclick="showPanel('transfer-pharmacy',this)"><span class="sb-icon"></span>To Pharmacy</button>
+        <button type="button" class="sb-item" data-roles="PHARMACY" onclick="showPanel('pharmacy-accept',this)"><span class="sb-icon"></span>Pharm Accept</button>
+        <button type="button" class="sb-item" data-roles="PHARMACY" onclick="showPanel('sell',this)"><span class="sb-icon"></span>Sell Units</button>
+
         <div class="sb-lbl" data-roles="gov">Governance & Medical</div>
         <button type="button" class="sb-item" data-roles="gov" onclick="showPanel('medinfo',this)"><span class="sb-icon"></span>Update Med Info</button>
         <button type="button" class="sb-item" data-roles="gov" onclick="showPanel('propose',this)"><span class="sb-icon"></span>Propose Company</button>
         <button type="button" class="sb-item" data-roles="gov" onclick="showPanel('vote',this)"><span class="sb-icon"></span>Vote</button>
-        
+
         <div class="sb-lbl" data-roles="all">Network Tools</div>
         <button type="button" class="sb-item" data-roles="all" onclick="showPanel('dashboard',this)"><span class="sb-icon"></span>Dashboard</button>
         <button type="button" class="sb-item" data-roles="all" onclick="showPanel('role',this)"><span class="sb-icon"></span>Check Wallet Role</button>
         <button type="button" class="sb-item" data-roles="all" style="color: var(--danger); margin-top: 2rem;" onclick="logoutUser()">Secure Logout</button>
       </aside>
-      
-      <main class="admin-main">
-        <div class="cfg-bar">
-          <span></span><span>API Base URL</span>
-          <input type="text" id="api-url" value="http://192.168.0.4:8000" />
-        </div>
-        
-        <div id="panel-create" class="panel active">
-            <div class="card"><div class="card-body">
-                <div class="factions"><button type="button" class="btn btn-p" onclick="createBatch()">Create &amp; Generate QR</button></div>
-            </div></div>
-        </div>
-      </main>
-    </div>
-  </div>
 
+      <main class="admin-main">
+        <!-- ── API BASE URL ── -->
+        <div class="cfg-bar">
+          <span>⚙</span><span>API Base URL</span>
+          <input type="text" id="api-url" value="http://127.0.0.1:8000" placeholder="http://127.0.0.1:8000" />
+        </div>
+
+        <!-- ════════════════════════════════════════════════
+             PANEL 1 — CREATE BATCH (Manufacturer)
+             POST /batch/create-drugs-t1
+             ════════════════════════════════════════════════ -->
+        <div id="panel-create" class="panel active">
+          <div class="card">
+            <div class="card-hdr">
+              <span class="card-hdr-t">🧪 Register New Drug Batch</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:var(--muted);">POST /batch/create-drugs-t1</span>
+            </div>
+            <div class="card-body">
+              <div class="fld-grid">
+                <div class="fld">
+                  <label>Batch ID</label>
+                  <input type="text" id="cb-batch-id" placeholder="e.g. BATCH-2025-001" />
+                </div>
+                <div class="fld">
+                  <label>Drug Name</label>
+                  <input type="text" id="cb-drug-name" placeholder="e.g. Amoxicillin 500mg" />
+                </div>
+                <div class="fld">
+                  <label>Manufacturer Name</label>
+                  <input type="text" id="cb-manu-name" placeholder="e.g. PharmaCorp Ltd." />
+                </div>
+                <div class="fld">
+                  <label>Batch Quantity (units)</label>
+                  <input type="number" id="cb-qty" placeholder="e.g. 1000" min="1" />
+                </div>
+                <div class="fld">
+                  <label>Manufacturing Date</label>
+                  <input type="date" id="cb-mfd" />
+                </div>
+                <div class="fld">
+                  <label>Expiry Date</label>
+                  <input type="date" id="cb-exp" />
+                </div>
+              </div>
+              <div class="fld">
+                <label>Manufacturer License / Drug Image</label>
+                <input type="file" id="cb-img" accept="image/*" />
+                <span class="fld-hint">Uploaded to IPFS via Pinata. Hash stored on-chain.</span>
+              </div>
+              <div class="factions">
+                <button type="button" class="btn btn-p" id="cb-submit-btn" onclick="createBatch()">Create &amp; Generate QR</button>
+              </div>
+              <!-- QR Result (shown after success) -->
+              <div class="qr-result" id="cb-qr-wrap">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:var(--safe);letter-spacing:2px;text-transform:uppercase;margin-bottom:0.75rem;">✓ Batch Registered On-Chain</div>
+                <img id="cb-qr-img" src="" alt="Batch QR Code" />
+                <div class="tx-info" id="cb-tx-hash"></div>
+                <div class="tx-info" id="cb-chain-hash"></div>
+                <button class="btn btn-g btn-sm" style="margin-top:10px;" onclick="document.getElementById('cb-qr-img').click()">
+                  💾 Right-click QR to save
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════════════════════════════════════════════════
+             PANEL 2 — SPLIT BATCH (Manufacturer / Distributor)
+             POST /batch/split-batch
+             ════════════════════════════════════════════════ -->
+        <div id="panel-split" class="panel">
+          <div class="card">
+            <div class="card-hdr">
+              <span class="card-hdr-t">✂️ Split Batch</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:var(--muted);">POST /batch/split-batch</span>
+            </div>
+            <div class="card-body">
+              <div class="fld-grid">
+                <div class="fld">
+                  <label>Parent Batch ID</label>
+                  <input type="text" id="sp-batch-id" placeholder="e.g. BATCH-2025-001" />
+                </div>
+                <div class="fld">
+                  <label>Number of Sub-Batches</label>
+                  <input type="number" id="sp-count" placeholder="e.g. 3" min="1" />
+                </div>
+                <div class="fld">
+                  <label>Quantity per Sub-Batch</label>
+                  <input type="number" id="sp-qty" placeholder="e.g. 200" min="1" />
+                </div>
+                <div class="fld">
+                  <label>Your Private Key (Blockchain)</label>
+                  <input type="password" id="sp-pk" placeholder="0x…" />
+                  <span class="fld-hint">Ganache / wallet private key of current batch owner.</span>
+                </div>
+              </div>
+              <div class="factions">
+                <button type="button" class="btn btn-p" id="sp-submit-btn" onclick="splitBatch()">Split Batch</button>
+              </div>
+              <pre class="api-resp" id="sp-resp"></pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════════════════════════════════════════════════
+             PANEL 3 — TRANSFER TO DISTRIBUTOR (Manufacturer)
+             POST /batch/ship-dist
+             ════════════════════════════════════════════════ -->
+        <div id="panel-transfer" class="panel">
+          <div class="card">
+            <div class="card-hdr">
+              <span class="card-hdr-t">🚚 Ship to Distributor</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:var(--muted);">POST /batch/ship-dist</span>
+            </div>
+            <div class="card-body">
+              <div class="fld-grid">
+                <div class="fld">
+                  <label>Batch ID</label>
+                  <input type="text" id="sd-batch-id" placeholder="e.g. BATCH-2025-001" />
+                </div>
+                <div class="fld">
+                  <label>Your Private Key (Current Owner)</label>
+                  <input type="password" id="sd-pk" placeholder="0x…" />
+                </div>
+                <div class="fld">
+                  <label>Distributor Wallet Address (new_owner_id)</label>
+                  <input type="text" id="sd-new-pk" placeholder="0x…" />
+                  <span class="fld-hint">Blockchain address of the receiving distributor.</span>
+                </div>
+                <div class="fld">
+                  <label>Distributor Name</label>
+                  <input type="text" id="sd-new-name" placeholder="e.g. Global Pharma Distributors" />
+                </div>
+              </div>
+              <div class="fld">
+                <label>Distributor Delivery Address (Location)</label>
+                <input type="text" id="sd-new-addr" placeholder="e.g. 42 Logistics Park, Delhi" />
+              </div>
+              <div class="factions">
+                <button type="button" class="btn btn-p" id="sd-submit-btn" onclick="shipToDist()">Initiate Shipment</button>
+              </div>
+              <pre class="api-resp" id="sd-resp"></pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════════════════════════════════════════════════
+             PANEL 4 — ACCEPT DELIVERY (Distributor)
+             POST /batch/receive-dist
+             ════════════════════════════════════════════════ -->
+        <div id="panel-accept" class="panel">
+          <div class="card">
+            <div class="card-hdr">
+              <span class="card-hdr-t">📦 Accept Delivery (Distributor)</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:var(--muted);">POST /batch/receive-dist</span>
+            </div>
+            <div class="card-body">
+              <div class="fld-grid">
+                <div class="fld">
+                  <label>Batch ID</label>
+                  <input type="text" id="ad-batch-id" placeholder="e.g. BATCH-2025-001" />
+                </div>
+                <div class="fld">
+                  <label>Your Private Key (Distributor)</label>
+                  <input type="password" id="ad-pk" placeholder="0x…" />
+                </div>
+                <div class="fld">
+                  <label>Your Blockchain Address</label>
+                  <input type="text" id="ad-addr" placeholder="0x…" />
+                </div>
+              </div>
+              <div class="factions">
+                <button type="button" class="btn btn-p" id="ad-submit-btn" onclick="acceptDelivery()">Confirm Receipt</button>
+              </div>
+              <pre class="api-resp" id="ad-resp"></pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════════════════════════════════════════════════
+             PANEL 5 — SHIP TO PHARMACY (Distributor)
+             POST /batch/ship-pharma
+             ════════════════════════════════════════════════ -->
+        <div id="panel-transfer-pharmacy" class="panel">
+          <div class="card">
+            <div class="card-hdr">
+              <span class="card-hdr-t">🏥 Ship to Pharmacy</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:var(--muted);">POST /batch/ship-pharma</span>
+            </div>
+            <div class="card-body">
+              <div class="fld-grid">
+                <div class="fld">
+                  <label>Batch ID</label>
+                  <input type="text" id="sp2-batch-id" placeholder="e.g. BATCH-2025-001-S1" />
+                </div>
+                <div class="fld">
+                  <label>Your Private Key (Distributor)</label>
+                  <input type="password" id="sp2-pk" placeholder="0x…" />
+                </div>
+                <div class="fld">
+                  <label>Pharmacy Wallet Address (new_owner_id)</label>
+                  <input type="text" id="sp2-new-pk" placeholder="0x…" />
+                </div>
+                <div class="fld">
+                  <label>Pharmacy Name</label>
+                  <input type="text" id="sp2-new-name" placeholder="e.g. City Care Pharmacy" />
+                </div>
+              </div>
+              <div class="fld">
+                <label>Pharmacy Physical Address</label>
+                <input type="text" id="sp2-new-addr" placeholder="e.g. 12 MG Road, Chennai" />
+              </div>
+              <div class="factions">
+                <button type="button" class="btn btn-p" id="sp2-submit-btn" onclick="shipToPharma()">Ship to Pharmacy</button>
+              </div>
+              <pre class="api-resp" id="sp2-resp"></pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════════════════════════════════════════════════
+             PANEL 6 — ACCEPT AT PHARMACY (Pharmacy)
+             POST /batch/receive-pharma
+             ════════════════════════════════════════════════ -->
+        <div id="panel-pharmacy-accept" class="panel">
+          <div class="card">
+            <div class="card-hdr">
+              <span class="card-hdr-t">✅ Accept Delivery (Pharmacy)</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:var(--muted);">POST /batch/receive-pharma</span>
+            </div>
+            <div class="card-body">
+              <div class="fld-grid">
+                <div class="fld">
+                  <label>Batch ID</label>
+                  <input type="text" id="ap-batch-id" placeholder="e.g. BATCH-2025-001-S1" />
+                </div>
+                <div class="fld">
+                  <label>Your Private Key (Pharmacy)</label>
+                  <input type="password" id="ap-pk" placeholder="0x…" />
+                </div>
+                <div class="fld">
+                  <label>Your Blockchain Address</label>
+                  <input type="text" id="ap-addr" placeholder="0x…" />
+                </div>
+              </div>
+              <div class="factions">
+                <button type="button" class="btn btn-p" id="ap-submit-btn" onclick="acceptPharma()">Confirm Receipt</button>
+              </div>
+              <pre class="api-resp" id="ap-resp"></pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════════════════════════════════════════════════
+             PANEL 7 — SELL DRUG UNIT (Pharmacy)
+             POST /batch/drug-status
+             ════════════════════════════════════════════════ -->
+        <div id="panel-sell" class="panel">
+          <div class="card">
+            <div class="card-hdr">
+              <span class="card-hdr-t">💊 Mark Unit as Sold</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:var(--muted);">POST /batch/drug-status</span>
+            </div>
+            <div class="card-body">
+              <p style="font-size:0.82rem;color:var(--muted);margin-bottom:1rem;">
+                Scan the individual drug strip QR or enter the Drug ID (format: <code style="font-family:'IBM Plex Mono',monospace;">BATCH-2025-001-D15</code>).
+              </p>
+              <div class="fld-grid">
+                <div class="fld">
+                  <label>Batch ID</label>
+                  <input type="text" id="sl-batch-id" placeholder="e.g. BATCH-2025-001" />
+                </div>
+                <div class="fld">
+                  <label>Drug Unit ID</label>
+                  <input type="text" id="sl-drug-id" placeholder="e.g. BATCH-2025-001-D15" />
+                </div>
+                <div class="fld" style="grid-column: 1 / -1;">
+                  <label>Your Private Key (Pharmacy)</label>
+                  <input type="password" id="sl-pk" placeholder="0x…" />
+                </div>
+              </div>
+              <div class="factions">
+                <button type="button" class="btn btn-p" id="sl-submit-btn" onclick="sellDrug()">Mark as Sold</button>
+              </div>
+              <pre class="api-resp" id="sl-resp"></pre>
+            </div>
+          </div>
+          <!-- Quick batch QR lookup -->
+          <div class="card">
+            <div class="card-hdr"><span class="card-hdr-t">🔳 Get Drug/Batch QR</span></div>
+            <div class="card-body">
+              <div class="fld">
+                <label>Drug ID or Batch ID</label>
+                <input type="text" id="qr-lookup-id" placeholder="e.g. BATCH-2025-001-D15 or BATCH-2025-001" />
+              </div>
+              <div class="factions">
+                <button type="button" class="btn btn-g" onclick="window.open(`${API()}/batch/get-qr/${document.getElementById('qr-lookup-id').value.trim()}`, '_blank')">
+                  🔗 Open QR Image
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════════════════════════════════════════════════
+             PANEL 8 — UPDATE MED INFO (Government — no endpoint yet)
+             ════════════════════════════════════════════════ -->
+        <div id="panel-medinfo" class="panel">
+          <div class="card">
+            <div class="card-hdr"><span class="card-hdr-t">🩺 Update Medical Information</span></div>
+            <div class="card-body">
+              <div class="placeholder-panel">
+                <div class="ph-icon">🚧</div>
+                <h3>Endpoint Not Yet Implemented</h3>
+                <p>The <code style="font-family:'IBM Plex Mono',monospace;">medicine.py</code> router exists with side-effects/allergies data, but it is <strong>not registered in <code>main.py</code></strong>.</p>
+                <p style="margin-top:0.75rem;">To enable this panel, add the following to <code style="font-family:'IBM Plex Mono',monospace;">main.py</code>:<br>
+                  <code style="font-family:'IBM Plex Mono',monospace; font-size:0.78rem; display:block; margin-top:8px; background:var(--surface2); padding:8px 12px; border-radius:6px; text-align:left;">from api.medicine import router as med_router<br>app.include_router(med_router, prefix="/medicine")</code>
+                </p>
+                <p style="margin-top:0.75rem;">Also add <code style="font-family:'IBM Plex Mono',monospace;">side_effects</code> and <code style="font-family:'IBM Plex Mono',monospace;">allergies</code> columns to the <code>DrugBatch</code> model in <code>batch_model.py</code>.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════════════════════════════════════════════════
+             PANEL 9 — PROPOSE COMPANY (Government — placeholder)
+             ════════════════════════════════════════════════ -->
+        <div id="panel-propose" class="panel">
+          <div class="card">
+            <div class="card-hdr"><span class="card-hdr-t">🏛️ Propose New Company</span></div>
+            <div class="card-body">
+              <div class="placeholder-panel">
+                <div class="ph-icon">🚧</div>
+                <h3>Coming Soon</h3>
+                <p>Governance endpoints (propose, vote) require on-chain voting logic. Add <code style="font-family:'IBM Plex Mono',monospace;">blockchain.assign_role()</code> wrapped in a FastAPI route in <code>batch1.py</code> to enable this panel.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════════════════════════════════════════════════
+             PANEL 10 — VOTE (Government — placeholder)
+             ════════════════════════════════════════════════ -->
+        <div id="panel-vote" class="panel">
+          <div class="card">
+            <div class="card-hdr"><span class="card-hdr-t">🗳️ Vote on Proposal</span></div>
+            <div class="card-body">
+              <div class="placeholder-panel">
+                <div class="ph-icon">🚧</div>
+                <h3>Coming Soon</h3>
+                <p>Voting requires a governance smart contract function and corresponding FastAPI endpoint. Wire the <code style="font-family:'IBM Plex Mono',monospace;">assignRole</code> contract call to an API route to enable this.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════════════════════════════════════════════════
+             PANEL 11 — DASHBOARD (All roles)
+             GET /batch/batch-det/{id} + /batch/verify/{id}
+             ════════════════════════════════════════════════ -->
+        <div id="panel-dashboard" class="panel">
+          <div class="card">
+            <div class="card-hdr">
+              <span class="card-hdr-t">📊 Batch Dashboard</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:var(--muted);">GET /batch/batch-det/{id} + verify</span>
+            </div>
+            <div class="card-body">
+              <div class="fld">
+                <label>Batch ID</label>
+                <input type="text" id="db-batch-id" placeholder="e.g. BATCH-2025-001" onkeydown="if(event.key==='Enter')dashboardLookup()" />
+              </div>
+              <div class="factions">
+                <button type="button" class="btn btn-p" id="db-submit-btn" onclick="dashboardLookup()">Lookup</button>
+              </div>
+              <pre class="api-resp" id="db-resp"></pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- ════════════════════════════════════════════════
+             PANEL 12 — CHECK WALLET ROLE (All roles)
+             GET /batch/role/{address}  ← needs to be added to batch1.py
+             ════════════════════════════════════════════════ -->
+        <div id="panel-role" class="panel">
+          <div class="card">
+            <div class="card-hdr">
+              <span class="card-hdr-t">🔑 Check Wallet Role</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:var(--warn);">GET /batch/role/{address} — add to batch1.py</span>
+            </div>
+            <div class="card-body">
+              <p style="font-size:0.82rem;color:var(--muted);margin-bottom:1rem;">
+                Reads <code style="font-family:'IBM Plex Mono',monospace;">blockchain.get_role(address)</code> from the smart contract.<br>
+                <strong>Action needed:</strong> add <code style="font-family:'IBM Plex Mono',monospace; font-size:0.75rem;">@router.get("/role/{address}")</code> to <code>batch1.py</code>.
+              </p>
+              <div class="fld">
+                <label>Wallet Address</label>
+                <input type="text" id="rl-address" placeholder="0x…" onkeydown="if(event.key==='Enter')checkRole()" />
+              </div>
+              <div class="factions">
+                <button type="button" class="btn btn-p" id="rl-submit-btn" onclick="checkRole()">Check Role</button>
+              </div>
+              <pre class="api-resp" id="rl-resp"></pre>
+            </div>
+          </div>
+        </div>
+
+      </main><!-- /.admin-main -->
+    </div><!-- /.admin-layout -->
+  </div><!-- /#page-admin -->
+
+  <!-- ═══════════════════════════════════════════════════════
+       GLOBAL OVERLAYS & MODALS
+       ═══════════════════════════════════════════════════════ -->
   <div class="toast-wrap" id="toasts"></div>
 
   <div id="bounty-modal" class="allergy-modal">
     <div class="allergy-content" style="max-width: 450px; text-align: center;">
-        <span style="font-size: 3rem; margin-bottom: 10px; display: block;">📸</span>
-        <h3 style="margin-bottom: 1rem; font-family: 'Playfair Display', serif;">Report Counterfeit</h3>
-        <p style="font-size: 0.85rem; color: var(--muted); margin-bottom: 1rem;">Upload a photo of the fake medicine packaging and the pharmacy receipt. Validators will review this claim.</p>
-        
-        <input type="file" accept="image/*" style="width: 100%; padding: 10px; border: 1.5px dashed var(--border); border-radius: 8px; margin-bottom: 1rem; background: var(--input-bg); color: var(--text);" />
-        <input type="text" placeholder="Pharmacy Name & Location" style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 1.5rem; background: var(--input-bg); color: var(--text);" />
-        
-        <div style="display: flex; gap: 10px;">
-            <button class="btn btn-g" style="flex: 1; justify-content: center;" onclick="document.getElementById('bounty-modal').classList.remove('show')">Cancel</button>
-            <button class="btn" style="flex: 2; justify-content: center; background: var(--warn); color: #000;" onclick="submitBountyClaim()">Submit & Claim 5 MATIC</button>
-        </div>
+      <span style="font-size: 3rem; margin-bottom: 10px; display: block;">📸</span>
+      <h3 style="margin-bottom: 1rem; font-family: 'Playfair Display', serif;">Report Counterfeit</h3>
+      <p style="font-size: 0.85rem; color: var(--muted); margin-bottom: 1rem;">Upload a photo of the fake medicine packaging and the pharmacy receipt. Validators will review this claim.</p>
+      <input type="file" accept="image/*" style="width: 100%; padding: 10px; border: 1.5px dashed var(--border); border-radius: 8px; margin-bottom: 1rem; background: var(--input-bg); color: var(--text);" />
+      <input type="text" placeholder="Pharmacy Name & Location" style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 1.5rem; background: var(--input-bg); color: var(--text);" />
+      <div style="display: flex; gap: 10px;">
+        <button class="btn btn-g" style="flex: 1; justify-content: center;" onclick="document.getElementById('bounty-modal').classList.remove('show')">Cancel</button>
+        <button class="btn" style="flex: 2; justify-content: center; background: var(--warn); color: #000;" onclick="submitBountyClaim()">Submit & Claim 5 MATIC</button>
+      </div>
     </div>
   </div>
 
-  <div class="guest-toast" id="guest-toast">
-    <span>Unlock personalized allergy warnings and history.</span>
+<div class="guest-toast" id="guest-toast" style="display: none;">    
+  <span>Unlock personalized allergy warnings and history.</span>
     <button class="btn btn-sm btn-p" onclick="document.getElementById('auth-modal').classList.add('show')">Login for Best Experience</button>
     <button class="btn-close-toast" onclick="document.getElementById('guest-toast').style.display='none'">✕</button>
   </div>
@@ -383,33 +915,35 @@
   <div id="auth-modal" class="allergy-modal">
     <div class="allergy-content" style="max-width: 450px;">
       <div class="verify-tabs" style="margin-bottom: 1.5rem;">
-        <button type="button" class="vtab active" onclick="switchAuthTab('patient', this)">Patient / User</button>
-        <button type="button" class="vtab" onclick="switchAuthTab('member', this)">Chain Member</button>
+        <button type="button" id="tab-btn-patient" class="vtab active" onclick="switchAuthTab('patient', this)">Patient / User</button>
+        <button type="button" id="tab-btn-member" class="vtab" onclick="switchAuthTab('member', this)">Chain Member</button>
       </div>
-      
+
       <div id="auth-patient" class="vpanel active">
         <h3 style="margin-bottom: 1rem; font-family: 'Playfair Display', serif;">Welcome to Rx-Block</h3>
         <input type="text" id="pt-user" placeholder="Username" style="width: 100%; padding: 10px; border-radius: 8px; margin-bottom: 10px; background: var(--input-bg); border: 1px solid var(--border); color: var(--text);" />
-        <input type="password" id="pt-pass" placeholder="Password" style="width: 100%; padding: 10px; border-radius: 8px; margin-bottom: 1rem; background: var(--input-bg); border: 1px solid var(--border); color: var(--text);" />
+        <input type="password" id="pt-pass" placeholder="Password" style="width: 100%; padding: 10px; border-radius: 8px; margin-bottom: 1rem; background: var(--input-bg); border: 1px solid var(--border); color: var(--text);" onkeydown="if(event.key==='Enter')handlePatientLogin()" />
         <div style="display: flex; gap: 10px; flex-direction: column;">
           <button class="btn btn-p" style="width: 100%; justify-content: center;" onclick="handlePatientLogin()">Login</button>
           <button class="btn btn-g" style="width: 100%; justify-content: center;" onclick="handlePatientRegister()">Create New Account</button>
         </div>
       </div>
-      
+
       <div id="auth-member" class="vpanel">
         <h3 style="margin-bottom: 1rem; font-family: 'Playfair Display', serif;">Enterprise Access</h3>
         <select id="cm-role" style="width: 100%; padding: 10px; border-radius: 8px; margin-bottom: 10px; background: var(--input-bg); border: 1px solid var(--border); color: var(--text);">
-          <option value="">Select your role...</option>
-          <option value="mfg">Manufacturer</option>
-          <option value="dist">Distributor</option>
-          <option value="pharm">Pharmacy</option>
-          <option value="gov">Government / Validator</option>
+          <option value="">Select your role…</option>
+          <option value="MANUFACTURER">Manufacturer</option>
+          <option value="DISTRIBUTOR">Distributor</option>
+          <option value="PHARMACY">Pharmacy</option>
+          <option value="VALIDATOR">Government / Validator</option>
         </select>
-        <input type="password" id="cm-pass" placeholder="Role Password (e.g., mfg123)" style="width: 100%; padding: 10px; border-radius: 8px; margin-bottom: 1rem; background: var(--input-bg); border: 1px solid var(--border); color: var(--text);" />
+        <input type="text" id="cm-user" placeholder="Username (e.g. mfg_admin)" style="width: 100%; padding: 10px; border-radius: 8px; margin-bottom: 10px; background: var(--input-bg); border: 1px solid var(--border); color: var(--text);" />
+        
+        <input type="password" id="cm-pass" placeholder="Password" style="width: 100%; padding: 10px; border-radius: 8px; margin-bottom: 1rem; background: var(--input-bg); border: 1px solid var(--border); color: var(--text);" onkeydown="if(event.key==='Enter')handleMemberLogin()" />
         <button class="btn btn-warn" style="width: 100%; justify-content: center; background: var(--warn); color: #000;" onclick="handleMemberLogin()">Secure Login</button>
       </div>
-      
+
       <div style="text-align: right; margin-top: 15px;">
         <button class="btn btn-sm" onclick="document.getElementById('auth-modal').classList.remove('show')">Cancel</button>
       </div>

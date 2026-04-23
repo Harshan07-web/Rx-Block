@@ -1,424 +1,585 @@
 import json
 import base64
-from fastapi import APIRouter, HTTPException, Depends, Header, status
+from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import Optional
 from datetime import datetime, timezone, date
+from auth.auth_models import User
+from auth.auth_database import local_session
 
-from services.blockchain_service import blockchain 
+from services.blockchain_service import blockchain
 from services.qr import generate_qr_image
-from database.database import get_db, engine
+from database.database import get_db
 from models.batch_model import DrugBatch, DrugItem, BatchStatus
-from services.hash import generate_secure_hash 
+from services.hash import generate_secure_hash
 from services.ipfs import upload_image_to_ipfs
+from auth.dependencies import get_authed_user, get_current_user
 
 router = APIRouter()
 
 
-STATUS_MAP = ["NONE", "CREATED", "IN_DISTRIBUTION", "AT_DISTRIBUTOR", "AT_PHARMACY", "SOLD"]
-ROLE_MAP = ["NONE", "TIER1_MANUFACTURER", "TIER2_MANUFACTURER", "DISTRIBUTOR", "PHARMACY", "VALIDATOR"]
+STATUS_MAP = ["NONE", "CREATED", "IN_TRANSIT_TO_DIST", "AT_DISTRIBUTOR", "IN_TRANSIT_TO_PHARM", "AT_PHARMACY", "DEPLETED"]
+
+ROLE_MAP = {0: "NONE", 1: "MANUFACTURER", 2: "DISTRIBUTOR", 3: "PHARMACY", 4: "VALIDATOR"}
 
 class CreateBatchT1(BaseModel):
-    batch_id : str
-    drug_name : str
-    manufacturer_name : str
-    mfd : date
-    exp : date
-    batch_quantity : int
-    image : str
+    batch_id:str
+    drug_name:str
+    manufacturer_name: str
+    mfd: date
+    exp: date
+    batch_quantity: int
+    image: str   
 
-class CreateBatchT2(BaseModel):
-    batch_id : str 
-    batch_quantity : int
-    manufacturer_name : str
-    drug_name : str
-    mfd : date
-    exp : date
+    @field_validator("batch_quantity")
+    @classmethod
+    def qty_positive(cls, v: int) -> int:
+        if v <= 0:
+            raise ValueError("batch_quantity must be > 0")
+        return v
 
-class DrugMarking(BaseModel):
-    drug_id : str 
-    manufacturer_name : str
-    mfd : date
-    exp : date
-    sold : bool
+    @field_validator("exp")
+    @classmethod
+    def exp_after_mfd(cls, v, info):
+        mfd = info.data.get("mfd")
+        if mfd and v <= mfd:
+            raise ValueError("Expiry date must be after manufacturing date")
+        return v
+
 
 class SplitBatch(BaseModel):
-    batch_id : str
-    no_of_batches : int
+    batch_id: str
+    no_of_batches: int
     quantity_per_batch: int
-    curr_owner_id : str 
 
-class SendBatch(BaseModel):
-    batch_id : str 
-    curr_owner_id : str 
-    new_owner_id : str
-    new_owner_name : str
-    new_owner_address : str
+
+class ShipToDist(BaseModel):
+    batch_id: str
+    recipient_username: str
+
 
 class ReceiveAtDist(BaseModel):
-    batch_id : str 
-    receiver_id : str 
-    receiver_address : str
+    batch_id: str
 
-class SendtoPharma(BaseModel):
-    batch_id : str
-    current_owner_id : str 
-    new_owner_id : str
-    new_owner_name : str
-    new_owner_address : str
+
+class ShipToPharma(BaseModel):
+    batch_id: str
+    recipient_username: str   
+
 
 class ReceiveAtPharma(BaseModel):
-    batch_id : str
-    receiver_id : str 
-    receiver_address : str
+    batch_id:str
 
-class SellDrugs(BaseModel):
-    batch_id : str
-    drug_id : str 
-    private_key : str 
 
-@router.post("/create-drugs-t1")
-async def Create_Batch_T1(create_batch_t1 : CreateBatchT1, db : Session = Depends(get_db)):
-    exists = db.query(DrugBatch).filter(DrugBatch.batch_id == create_batch_t1.batch_id).first()
-    if exists:
-        raise HTTPException(status_code= status.HTTP_409_CONFLICT, detail="BatchId already exists in the chain")
+class SellDrug(BaseModel):
+    batch_id:str
+    drug_id: str  
+
+class AssignRolePayload(BaseModel):
+    target_username: str
+    role_index: int   
+
+
+def _get_wallet_address(username: str, auth_db) -> str:
+    user = auth_db.query(User).filter(User.username == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail=f"User '{username}' not found")
+    return blockchain.w3.eth.account.from_key(user.private_key).address
+
+
+
+@router.post("/create-drugs-t1", status_code=201)
+async def create_batch_t1(payload:CreateBatchT1,auth = Depends(get_authed_user("MANUFACTURER")),db: Session = Depends(get_db),):
+    user, current_user = auth
+
+    if db.query(DrugBatch).filter(DrugBatch.batch_id == payload.batch_id).first():
+        raise HTTPException(status_code=409, detail="Batch ID already exists")
 
     try:
-        timestamp = datetime.now(timezone.utc).replace(microsecond=0)
-        image_data = base64.b64decode(create_batch_t1.image)
-        with open("temp_image.png","wb") as f:
+        timestamp  = datetime.now(timezone.utc).replace(microsecond=0)
+
+   
+        image_data = base64.b64decode(payload.image)
+        with open("temp_image.png", "wb") as f:
             f.write(image_data)
-        ipfs = upload_image_to_ipfs("temp_image.png") 
+        ipfs_hash = upload_image_to_ipfs("temp_image.png")
 
         unique_hash = generate_secure_hash({
-            "id": create_batch_t1.batch_id,
-            "name": create_batch_t1.drug_name,
-            "mfg": str(create_batch_t1.mfd),
-            "exp" : str(create_batch_t1.exp),
-            "manu_name" : create_batch_t1.manufacturer_name,
-            "ts": timestamp.isoformat()
+            "id": payload.batch_id,
+            "name":payload.drug_name,
+            "mfg":str(payload.mfd),
+            "exp": str(payload.exp),
+            "manu_name": payload.manufacturer_name,
+            "ts":timestamp.isoformat(),
         })
 
-        receipt = blockchain.create_batch(create_batch_t1.batch_id, unique_hash, create_batch_t1.batch_quantity)
-        
-        new_batch = DrugBatch(
-            batch_id = create_batch_t1.batch_id,
-            drug_name = create_batch_t1.drug_name,
-            manufacturer_name = create_batch_t1.manufacturer_name,
-            mfd = create_batch_t1.mfd,
-            exp = create_batch_t1.exp,
-            created_at = timestamp,
-            tot_drugs = create_batch_t1.batch_quantity,
-            ipfs_hash = ipfs,
+        qr_img = generate_qr_image(unique_hash, is_batch=True)
+
+        receipt = blockchain.create_batch(
+            payload.batch_id, unique_hash, payload.batch_quantity,
+            private_key=user.private_key
         )
 
+        new_batch = DrugBatch(
+            batch_id = payload.batch_id,
+            drug_name= payload.drug_name,
+            manufacturer_name = payload.manufacturer_name,
+            mfd  = payload.mfd,
+            exp  = payload.exp,
+            created_at = timestamp,
+            tot_drugs  = payload.batch_quantity,
+            ipfs_hash = ipfs_hash,
+        )
         db.add(new_batch)
         db.flush()
 
-        drug_data = [
-            {
-                "batch_id": create_batch_t1.batch_id,
-                "drug_id": f"{create_batch_t1.batch_id}-D{i}",
-                "is_sold": False
-            }
-            for i in range(1, create_batch_t1.batch_quantity + 1)
+        drug_items = [
+            {"batch_id": payload.batch_id,
+             "drug_id":  f"{payload.batch_id}-D{i}",
+             "is_sold":  False}
+            for i in range(1, payload.batch_quantity + 1)
         ]
-
-        db.bulk_insert_mappings(DrugItem, drug_data)
+        db.bulk_insert_mappings(DrugItem, drug_items)
         db.commit()
 
-        return{
-            "Status" : "Success",
-            "Blockchain_hash" : unique_hash,
-            "db_id" : new_batch.batch_id,
-            "transaction" : receipt.transactionHash.hex()
-        }
+        return StreamingResponse(
+            qr_img,
+            media_type="image/png",
+            headers={
+                "Status": "Success",
+                "Blockchain_hash": unique_hash,
+                "db_id": new_batch.batch_id,
+                "transaction": receipt.transactionHash.hex(),
+                "created_by": current_user["username"],
+            },
+        )
 
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Transaction failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Batch creation failed: {e}")
 
-@router.post("/create-drugs-t2")
-def Create_Batch_T2(create_batch_t2 : CreateBatchT2):
-    pass
 
 @router.post("/split-batch")
-async def Split_Batch(split: SplitBatch, db: Session = Depends(get_db)):
-    parent_batch = db.query(DrugBatch).filter(DrugBatch.batch_id == split.batch_id).first()
-    if not parent_batch:
+async def split_batch(payload: SplitBatch,auth = Depends(get_authed_user("MANUFACTURER", "DISTRIBUTOR")),db: Session = Depends(get_db),):
+    user, current_user = auth
+
+    parent = db.query(DrugBatch).filter(DrugBatch.batch_id == payload.batch_id).first()
+    if not parent:
         raise HTTPException(status_code=404, detail="Parent batch not found")
-    if parent_batch.tot_drugs == 0:
-        raise HTTPException(status_code=400, detail="This batch is already empty or split")
-    
-    total_needed = split.no_of_batches * split.quantity_per_batch
-    if total_needed > parent_batch.tot_drugs:
-        raise HTTPException(status_code=400, detail=f"Insufficient quantity. Have {parent_batch.tot_drugs}, need {total_needed}")
+    if parent.tot_drugs == 0:
+        raise HTTPException(status_code=400, detail="Batch is already empty / fully split")
+
+    total_needed = payload.no_of_batches * payload.quantity_per_batch
+    if total_needed > parent.tot_drugs:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Not enough units. Available: {parent.tot_drugs}, requested: {total_needed}"
+        )
 
     try:
         timestamp = datetime.now(timezone.utc)
-        all_drugs = db.query(DrugItem).filter(DrugItem.batch_id == split.batch_id).all()
+        all_drugs = db.query(DrugItem).filter(DrugItem.batch_id == payload.batch_id).all()
         drug_index = 0
 
-        for i in range(split.no_of_batches):
-            new_child_id = f"{split.batch_id}-S{i+1}" 
-            
+        for i in range(payload.no_of_batches):
+            child_id = f"{payload.batch_id}-S{i + 1}"
+
             child_hash = generate_secure_hash({
-                "id": new_child_id,                    
-                "name": parent_batch.drug_name,        
-                "mfg": str(parent_batch.mfd),               
-                "exp": str(parent_batch.exp),               
-                "manu_name": parent_batch.manufacturer_name, 
-                "ts": timestamp.isoformat()            
+                "id":child_id,
+                "name": parent.drug_name,
+                "mfg":str(parent.mfd),
+                "exp": str(parent.exp),
+                "manu_name": parent.manufacturer_name,
+                "ts":  timestamp.isoformat(),
             })
 
-            receipt = blockchain.split_batch(split.batch_id, new_child_id, child_hash, split.quantity_per_batch, split.curr_owner_id)
-
-            new_child = DrugBatch(
-                batch_id = new_child_id,
-                drug_name = parent_batch.drug_name,
-                manufacturer_name = parent_batch.manufacturer_name,
-                mfd = parent_batch.mfd,
-                exp = parent_batch.exp,
-                tot_drugs = split.quantity_per_batch,
+            blockchain.split_batch(
+                payload.batch_id, child_id, child_hash,
+                payload.quantity_per_batch, user.private_key
             )
-            db.add(new_child)
 
-            for _ in range(split.quantity_per_batch):
+            child = DrugBatch(
+                batch_id = child_id,
+                drug_name = parent.drug_name,
+                manufacturer_name = parent.manufacturer_name,
+                mfd  = parent.mfd,
+                exp  = parent.exp,
+                tot_drugs = payload.quantity_per_batch,
+                parent_batch_id  = payload.batch_id,
+            )
+            db.add(child)
+
+            for _ in range(payload.quantity_per_batch):
                 if drug_index < len(all_drugs):
-                    all_drugs[drug_index].batch_id = new_child_id
+                    all_drugs[drug_index].batch_id = child_id
                     drug_index += 1
 
-        parent_batch.tot_drugs -= total_needed
-        
+        parent.tot_drugs -= total_needed
         db.commit()
 
         return {
-            "status": "Success",
-            "message": f"Batch {split.batch_id} split into {split.no_of_batches} batches.",
-            "remaining_parent_qty": parent_batch.tot_drugs
+            "status":  "success",
+            "message": f"Batch {payload.batch_id} split into {payload.no_of_batches} sub-batches",
+            "split_by": current_user["username"],
+            "remaining_in_parent": parent.tot_drugs,
         }
 
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Split failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Split failed: {e}")
 
 @router.post("/ship-dist")
-async def Send_To_Dist(send_dist : SendBatch, db : Session = Depends(get_db)):
-    batch = db.query(DrugBatch).filter(DrugBatch.batch_id == send_dist.batch_id).first()
-    if not batch:
-        raise HTTPException(status_code=500, detail="Batch to transfer not found!")
+async def ship_to_distributor(payload:ShipToDist,auth = Depends(get_authed_user("MANUFACTURER")),db: Session = Depends(get_db),):
+    user, current_user = auth
+
+    if not db.query(DrugBatch).filter(DrugBatch.batch_id == payload.batch_id).first():
+        raise HTTPException(status_code=404, detail="Batch not found")
+
     try:
-        receipt = blockchain.ship_to_distributor(send_dist.batch_id, send_dist.new_owner_address, send_dist.curr_owner_id)
-        
-        new_log = BatchStatus(
-            batch_id = send_dist.batch_id,
-            status = "DELIVERY TO DISTRIBUTOR",
-            location = send_dist.new_owner_address,
-            lat = 1.213433, 
-            lng = 2.345345,
-            timestamp = datetime.now(timezone.utc)
+        auth_db = local_session()
+        try:
+            distributor_address = _get_wallet_address(payload.recipient_username, auth_db)
+            recipient = auth_db.query(User).filter(User.username == payload.recipient_username).first()
+            if recipient.role != "DISTRIBUTOR":
+                raise HTTPException(status_code=400, detail=f"'{payload.recipient_username}' is not registered as a DISTRIBUTOR")
+        finally:
+            auth_db.close()
+
+        receipt = blockchain.ship_to_distributor(
+            payload.batch_id, distributor_address, user.private_key
         )
 
-        db.add(new_log)
-        db.commit()
-
-        return{
-            "status" : "Success",
-            "message" : f"Transfer successfully initiated to {send_dist.new_owner_address}"
-        }
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to transfer batch {e}")
-
-
-@router.post("/receive-dist")
-async def Receive_Dist(receive_dist : ReceiveAtDist, db : Session = Depends(get_db)):
-    batch = db.query(DrugBatch).filter(DrugBatch.batch_id == receive_dist.batch_id).first()
-
-    if not batch:
-        raise HTTPException(status_code=500, detail="Batch not found!!")
-    
-    try:
-        blockchain.receive_at_distributor(receive_dist.batch_id, receive_dist.receiver_id)
-        
-        batch.current_owner = receive_dist.receiver_id 
-
-        new_log = BatchStatus(
-            batch_id = receive_dist.batch_id,
-            status = "RECEIVED AT DISTRIBUTOR",
-            location = receive_dist.receiver_address,
-            lat = 1.78786439, 
-            lng = 4.356432323,
-            timestamp = datetime.now(timezone.utc)
-        )
-
-        db.add(new_log)
-        db.commit()
-        
-        return {"status": "Success", "message": "Batch received"} 
-
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Couldn't accept batch {e}")
-
-@router.post("/ship-pharma")
-async def Send_To_Pharma(send_pharma : SendtoPharma , db : Session = Depends(get_db)):
-    batch = db.query(DrugBatch).filter(DrugBatch.batch_id == send_pharma.batch_id).first()
-    if not batch:
-        raise HTTPException(status_code=500, detail="Batch to transfer not found!")
-    try:
-        receipt = blockchain.ship_to_pharmacy(send_pharma.batch_id, send_pharma.new_owner_address, send_pharma.current_owner_id)
-        new_log = BatchStatus(
-            batch_id = send_pharma.batch_id,
-            status = "DELIVERY TO PHARMACY",
-            location = send_pharma.new_owner_address,
-            lat = 1.2187643,
-            lng = 2.34523145,
-            timestamp = datetime.now(timezone.utc)
-        )
-
-        db.add(new_log)
-        db.commit()
-
-        return{
-            "status" : "Success",
-            "message" : f"Transfer successfully initiated to {send_pharma.new_owner_address}"
-        }
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to transfer batch {e}")
-
-@router.post("/receive-pharma")
-async def Receive_Pharma(receive_pharma : ReceiveAtPharma , db : Session = Depends(get_db)):
-    batch = db.query(DrugBatch).filter(DrugBatch.batch_id == receive_pharma.batch_id).first()
-
-    if not batch:
-        raise HTTPException(status_code=500, detail="Batch not found!!")
-    
-    try:
-        blockchain.receive_at_pharmacy(receive_pharma.batch_id, receive_pharma.receiver_id)
-        
-        batch.current_owner = receive_pharma.receiver_id 
-
-        new_log = BatchStatus(
-            batch_id = receive_pharma.batch_id,
-            status = "RECEIVED AT PHARMACY", 
-            location = receive_pharma.receiver_address,
-            lat = 1.7853645659, 
-            lng = 4.3564564323,
-            timestamp = datetime.now(timezone.utc)
-        )
-
-        db.add(new_log)
-        db.commit()
-        
-        return {"status": "Success", "message": "Batch received at pharmacy"}
-
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Couldn't accept batch {e}")
-
-@router.post("/drug-status")
-async def Drug_Status(drug_status : SellDrugs , db:Session = Depends(get_db)):
-    drug = db.query(DrugItem).filter(DrugItem.drug_id == drug_status.drug_id).first()
-
-    if not drug:
-        raise HTTPException(status_code=500, detail="Drug not found in the batch")
-    if drug.is_sold == True:
-        raise HTTPException(status_code=500, detail="Drug already sold")
-
-    try:
-        blockchain.sell_item(drug_status.batch_id, drug_status.drug_id, drug_status.private_key)
-
-        drug.is_sold = True
-        
+        db.add(BatchStatus(
+            batch_id = payload.batch_id,
+            status = "IN_TRANSIT_TO_DIST",
+            location = f"En route to {payload.recipient_username}",
+            lat=0.0, lng=0.0,
+            timestamp = datetime.now(timezone.utc),
+        ))
         db.commit()
 
         return {
-            "Unit_sold" : f"{drug_status.drug_id} is sold",
-            "status" : "Success"
+            "status": "success",
+            "message": f"Batch {payload.batch_id} shipped to distributor {payload.recipient_username}",
+            "shipped_by": current_user["username"],
+            "recipient": payload.recipient_username,
+            "transaction": receipt.transactionHash.hex(),
         }
-    
+
+    except HTTPException:
+        raise
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Cannot sell particular unit: {e}")
+        raise HTTPException(status_code=500, detail=f"Shipment failed: {e}")
+
+@router.post("/receive-dist")
+async def receive_at_distributor(
+    payload:ReceiveAtDist,auth = Depends(get_authed_user("DISTRIBUTOR")),db: Session = Depends(get_db),):
+    user, current_user = auth
+
+    if not db.query(DrugBatch).filter(DrugBatch.batch_id == payload.batch_id).first():
+        raise HTTPException(status_code=404, detail="Batch not found")
+
+    try:
+        receipt = blockchain.receive_at_distributor(payload.batch_id, user.private_key)
+
+        db.add(BatchStatus(
+            batch_id  = payload.batch_id,
+            status = "AT_DISTRIBUTOR",
+            location = f"Received by {current_user['username']}",
+            lat=0.0, lng=0.0,
+            timestamp = datetime.now(timezone.utc),
+        ))
+        db.commit()
+
+        return {
+            "status": "success",
+            "message": f"Batch {payload.batch_id} received at distributor",
+            "received_by": current_user["username"],
+            "transaction": receipt.transactionHash.hex(),
+        }
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Could not accept batch: {e}")
+
+
+
+@router.post("/ship-pharma")
+async def ship_to_pharmacy(payload: ShipToPharma,auth = Depends(get_authed_user("DISTRIBUTOR")),db: Session = Depends(get_db),):
+    user, current_user = auth
+
+    if not db.query(DrugBatch).filter(DrugBatch.batch_id == payload.batch_id).first():
+        raise HTTPException(status_code=404, detail="Batch not found")
+
+    try:
+        auth_db = local_session()
+        try:
+            pharmacy_address = _get_wallet_address(payload.recipient_username, auth_db)
+            recipient = auth_db.query(User).filter(User.username == payload.recipient_username).first()
+            if recipient.role != "PHARMACY":
+                raise HTTPException(status_code=400, detail=f"'{payload.recipient_username}' is not registered as a PHARMACY")
+        finally:
+            auth_db.close()
+
+        receipt = blockchain.ship_to_pharmacy(
+            payload.batch_id, pharmacy_address, user.private_key
+        )
+
+        db.add(BatchStatus(
+            batch_id  = payload.batch_id,
+            status  = "IN_TRANSIT_TO_PHARM",
+            location = f"En route to {payload.recipient_username}",
+            lat=0.0, lng=0.0,
+            timestamp = datetime.now(timezone.utc),
+        ))
+        db.commit()
+
+        return {
+            "status": "success",
+            "message": f"Batch {payload.batch_id} shipped to pharmacy {payload.recipient_username}",
+            "shipped_by":  current_user["username"],
+            "recipient":   payload.recipient_username,
+            "transaction": receipt.transactionHash.hex(),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Shipment to pharmacy failed: {e}")
+
+@router.post("/receive-pharma")
+async def receive_at_pharmacy(payload: ReceiveAtPharma, auth = Depends(get_authed_user("PHARMACY")),db: Session = Depends(get_db),):
+    user, current_user = auth
+
+    if not db.query(DrugBatch).filter(DrugBatch.batch_id == payload.batch_id).first():
+        raise HTTPException(status_code=404, detail="Batch not found")
+
+    try:
+        receipt = blockchain.receive_at_pharmacy(payload.batch_id, user.private_key)
+
+        db.add(BatchStatus(
+            batch_id  = payload.batch_id,
+            status = "AT_PHARMACY",
+            location = f"Received by {current_user['username']}",
+            lat=0.0, lng=0.0,
+            timestamp = datetime.now(timezone.utc),
+        ))
+        db.commit()
+
+        return {
+            "status":"success",
+            "message": f"Batch {payload.batch_id} received at pharmacy",
+            "received_by": current_user["username"],
+            "transaction": receipt.transactionHash.hex(),
+        }
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Could not accept batch: {e}")
+
+
+@router.post("/drug-status")
+async def sell_drug(payload:  SellDrug,auth = Depends(get_authed_user("PHARMACY")),db: Session = Depends(get_db),):
+    user, current_user = auth
+
+    drug = db.query(DrugItem).filter(DrugItem.drug_id == payload.drug_id).first()
+    if not drug:
+        raise HTTPException(status_code=404, detail="Drug ID not found in database")
+    if drug.is_sold:
+        raise HTTPException(status_code=409, detail="This drug unit has already been sold")
+
+    try:
+        blockchain.sell_item(payload.batch_id, payload.drug_id, user.private_key)
+
+        drug.is_sold = True
+        drug.sold_at = datetime.now(timezone.utc)
+        db.commit()
+
+        return {
+            "status": "success",
+            "sold_unit": payload.drug_id,
+            "sold_by":current_user["username"],
+        }
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Sale failed: {e}")
+
+@router.post("/assign-role")
+async def assign_role(payload: AssignRolePayload,auth= Depends(get_authed_user("VALIDATOR")),):
+    user, current_user = auth
+
+    if payload.role_index not in ROLE_MAP or payload.role_index == 0:
+        raise HTTPException(status_code=400, detail="role_index must be 1 - 4")
+
+    try:
+        auth_db = local_session()
+        try:
+            target_address = _get_wallet_address(payload.target_username, auth_db)
+        finally:
+            auth_db.close()
+
+        receipt = blockchain.assign_role(
+            target_address, payload.role_index, private_key=user.private_key
+        )
+
+        return {
+            "status": "success",
+            "assigned_to":  payload.target_username,
+            "role":ROLE_MAP[payload.role_index],
+            "by_validator": current_user["username"],
+            "transaction":  receipt.transactionHash.hex(),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Role assignment failed: {e}")
+
 
 @router.get("/batch-det/{batch_id}")
-def Get_Batch_details(batch_id : str, db : Session = Depends(get_db)): 
-    exists = db.query(DrugBatch).filter(DrugBatch.batch_id == batch_id).first()
-    if not exists:
-        raise HTTPException(status_code=404, detail="Not found")
+def get_batch_details(batch_id:str,current_user: dict = Depends(get_current_user),db: Session  = Depends(get_db),):
+    batch = db.query(DrugBatch).filter(DrugBatch.batch_id == batch_id).first()
+    if not batch:
+        raise HTTPException(status_code=404, detail="Batch not found")
+
+    latest_status = (
+        db.query(BatchStatus)
+        .filter(BatchStatus.batch_id == batch_id)
+        .order_by(BatchStatus.timestamp.desc())
+        .first()
+    )
+
     return {
-        "batch_id" : exists.batch_id,
-        "manu_name" : exists.manufacturer_name,
-        "drug_name" : exists.drug_name,
-        "created_time" : exists.created_at,
-        "mfd_date" : exists.mfd,
-        "exp_date" : exists.exp,
-        "quantity" : exists.tot_drugs
+        "batch_id":batch.batch_id,
+        "manu_name":batch.manufacturer_name,
+        "drug_name":batch.drug_name,
+        "created_at":batch.created_at,
+        "mfd_date":batch.mfd,
+        "exp_date":batch.exp,
+        "quantity":batch.tot_drugs,
+        "status":latest_status.status if latest_status else "CREATED",
+        "location":latest_status.location if latest_status else None,
     }
 
-@router.get("/get-qr/{drug_id}")
-async def get_drug_qr(drug_id: str):
-    is_batch = "-D" not in drug_id
-    qr_buffer = generate_qr_image(drug_id, is_batch=is_batch)
-    
-    return StreamingResponse(qr_buffer, media_type="image/png")
 
 @router.get("/verify/{batch_id}")
-async def verify_the_batch(batch_id:str,db:Session = Depends(get_db)):
-    batch = db.query(DrugBatch).filter(DrugBatch.batch_id==batch_id).first()
-
+async def verify_batch(batch_id:str,current_user: dict = Depends(get_current_user),db: Session= Depends(get_db),):
+    batch = db.query(DrugBatch).filter(DrugBatch.batch_id == batch_id).first()
     if not batch:
-        raise HTTPException(status_code=500,detail="Batch not found")
-    
+        raise HTTPException(status_code=404, detail="Batch not found")
+
     try:
-        if isinstance(batch.created_at,str):
-            ts_str = batch.created_at
-            if "00:00" not in ts_str:
-                ts_str+="+00:00"
+        ts_str = (
+            batch.created_at
+            if isinstance(batch.created_at, str)
+            else batch.created_at.strftime("%Y-%m-%dT%H:%M:%S+00:00")
+        )
+        if isinstance(ts_str, str) and "+00:00" not in ts_str:
+            ts_str += "+00:00"
 
-        else:
-            ts_str = batch.created_at.strftime("%Y-%m-%dT%H:%M:%S+00:00")
-
-        new_hash = generate_secure_hash({
-                "id": batch.batch_id,
-                "name": batch.drug_name,
-                "mfg": str(batch.mfd),
-                "exp" : str(batch.exp),
-                "manu_name" : batch.manufacturer_name,
-                "ts": ts_str
+        recomputed = generate_secure_hash({
+            "id":batch.batch_id,
+            "name":batch.drug_name,
+            "mfg":str(batch.mfd),
+            "exp":str(batch.exp),
+            "manu_name": batch.manufacturer_name,
+            "ts": ts_str,
         })
 
         chain = blockchain.get_batch_data(batch_id)
-        chain_hash = chain[2]
+        chain_hash = chain[2]   
 
-        if new_hash==chain_hash:
+        if recomputed == chain_hash:
             return {
-                    "status": "VERIFIED",
-                    "message": "Cryptographic seal matches. Data is authentic",
-                    "data": {
-                        "drug": batch.drug_name,
-                        "manufacturer": batch.manufacturer_name,
-                        "mfg_date": batch.mfd,
-                        "exp_date": batch.exp
-                    }
-                }
+                "status": "VERIFIED",
+                "message": "Cryptographic seal matches — data is authentic",
+                "data": {
+                    "drug":batch.drug_name,
+                    "manufacturer": batch.manufacturer_name,
+                    "mfg_date": batch.mfd,
+                    "exp_date": batch.exp,
+                },
+            }
         else:
             return {
-                "status": "TAMPERED",
-                "message": "WARNING: The database information does not match the blockchain seal!",
+                "status":"TAMPERED",
+                "message": "WARNING: database record does not match the blockchain seal",
                 "mismatched_hashes": {
-                    "database_hash": new_hash,
-                    "blockchain_hash": chain_hash
-                }
+                    "database_hash": recomputed,
+                    "blockchain_hash": chain_hash,
+                },
             }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Verification failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Verification failed: {e}")
 
 
+@router.get("/verify_drug/{drug_id}")
+async def verify_drug(drug_id:str,current_user: dict = Depends(get_current_user),db: Session = Depends(get_db),):
+    item = db.query(DrugItem).filter(DrugItem.drug_id == drug_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Drug ID not found")
 
-    
+    try:
+        batch = db.query(DrugBatch).filter(DrugBatch.batch_id == item.batch_id).first()
+        ts_str = (
+            batch.created_at.strftime("%Y-%m-%dT%H:%M:%S+00:00")
+            if not isinstance(batch.created_at, str)
+            else batch.created_at + ("+00:00" if "+00:00" not in batch.created_at else "")
+        )
+
+        recomputed = generate_secure_hash({
+            "id": batch.batch_id,
+            "name":batch.drug_name,
+            "mfg": str(batch.mfd),
+            "exp": str(batch.exp),
+            "manu_name": batch.manufacturer_name,
+            "ts":ts_str,
+        })
+
+        chain_data = blockchain.get_batch_data(batch.batch_id)
+        chain_hash  = chain_data[2]
+        is_authentic = recomputed == chain_hash
+
+        return {
+            "is_authentic":is_authentic,
+            "blockchain_status":"VERIFIED" if is_authentic else "TAMPERED",
+            "drug_id": drug_id,
+            "batch_id": batch.batch_id,
+            "drug_name":batch.drug_name,
+            "manufacturer": batch.manufacturer_name,
+            "mfd": batch.mfd,
+            "exp": batch.exp,
+            "is_sold": item.is_sold,
+            "sold_at": item.sold_at if item.is_sold else None,
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Verification failed: {e}")
+
+
+@router.get("/get-qr/{identifier}")
+async def get_qr(identifier:str,current_user: dict = Depends(get_current_user),):
+    is_batch = "-D" not in identifier
+    return StreamingResponse(
+        generate_qr_image(identifier, is_batch=is_batch),
+        media_type="image/png",
+    )
+
+
+@router.get("/role/{address}")
+async def check_role(address:str,current_user: dict = Depends(get_current_user),):
+    try:
+        role_index = blockchain.get_role(address)
+        return {
+            "address":    address,
+            "role_index": role_index,
+            "role":       ROLE_MAP.get(role_index, "UNKNOWN"),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Role lookup failed: {e}")
