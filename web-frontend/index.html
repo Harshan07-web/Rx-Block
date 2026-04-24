@@ -128,6 +128,7 @@
     .placeholder-panel h3 { font-family: 'Playfair Display', serif; margin-bottom: 0.5rem; color: var(--text2); }
     .placeholder-panel p { font-size: 0.85rem; line-height: 1.7; }
   </style>
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 </head>
 <body>
 
@@ -172,7 +173,7 @@
       </div>
     </div>
     <div style="display: flex; align-items: center;">
-      <button type="button" class="btn btn-sm btn-p" id="nav-login-btn" style="display: none;" onclick="document.getElementById('auth-modal').classList.add('show')">Sign In</button>
+      <button type="button" class="btn btn-sm btn-p" id="nav-login-btn" onclick="(function(){ var ts=document.querySelector('#auth-modal .verify-tabs'); if(ts) ts.style.display=''; document.getElementById('auth-modal').classList.add('show'); })()">Sign In</button>
     </div>
   </nav>
 
@@ -192,6 +193,8 @@
       
       <div style="display: flex; gap: 15px; justify-content: center; margin-bottom: 4rem;">
         
+      <div id="hero-login-buttons" style="display: flex; gap: 15px; justify-content: center; margin-bottom: 4rem;">
+        
         <button class="btn btn-p" style="padding: 14px 28px; font-size: 1rem;" onclick="openSpecificLogin('patient')">
           Public / Patient Login
         </button>
@@ -199,6 +202,8 @@
         <button class="btn btn-g" style="padding: 14px 28px; font-size: 1rem;" onclick="openSpecificLogin('member')">
           Enterprise Login
         </button>
+
+      </div>
 
       </div>
 
@@ -230,7 +235,7 @@
         <div class="vpanel active" id="vp-text">
           <div class="sbox">
             <input type="text" id="pub-id" placeholder="e.g. BATCH-2025-001 or TEST-001" onkeydown="if(event.key==='Enter')lookupBatch()" />
-            <button type="button" class="sbtn" onclick="lookupBatch()">Verify →</button>
+            <button type="button" class="sbtn" id="pub-search-btn" onclick="lookupBatch()">Verify →</button>
           </div>
         </div>
 
@@ -466,10 +471,10 @@
         <button type="button" class="sb-item" data-roles="PHARMACY" onclick="showPanel('pharmacy-accept',this)"><span class="sb-icon"></span>Pharm Accept</button>
         <button type="button" class="sb-item" data-roles="PHARMACY" onclick="showPanel('sell',this)"><span class="sb-icon"></span>Sell Units</button>
 
-        <div class="sb-lbl" data-roles="gov">Governance & Medical</div>
-        <button type="button" class="sb-item" data-roles="gov" onclick="showPanel('medinfo',this)"><span class="sb-icon"></span>Update Med Info</button>
-        <button type="button" class="sb-item" data-roles="gov" onclick="showPanel('propose',this)"><span class="sb-icon"></span>Propose Company</button>
-        <button type="button" class="sb-item" data-roles="gov" onclick="showPanel('vote',this)"><span class="sb-icon"></span>Vote</button>
+        <div class="sb-lbl" data-roles="VALIDATOR">Governance & Medical</div>
+        <button type="button" class="sb-item" data-roles="VALIDATOR" onclick="showPanel('medinfo',this)"><span class="sb-icon"></span>Update Med Info</button>
+        <button type="button" class="sb-item" data-roles="VALIDATOR" onclick="showPanel('propose',this)"><span class="sb-icon"></span>Propose Company</button>
+        <button type="button" class="sb-item" data-roles="VALIDATOR" onclick="showPanel('vote',this)"><span class="sb-icon"></span>Vote</button>
 
         <div class="sb-lbl" data-roles="all">Network Tools</div>
         <button type="button" class="sb-item" data-roles="all" onclick="showPanel('dashboard',this)"><span class="sb-icon"></span>Dashboard</button>
@@ -567,11 +572,6 @@
                   <label>Quantity per Sub-Batch</label>
                   <input type="number" id="sp-qty" placeholder="e.g. 200" min="1" />
                 </div>
-                <div class="fld">
-                  <label>Your Private Key (Blockchain)</label>
-                  <input type="password" id="sp-pk" placeholder="0x…" />
-                  <span class="fld-hint">Ganache / wallet private key of current batch owner.</span>
-                </div>
               </div>
               <div class="factions">
                 <button type="button" class="btn btn-p" id="sp-submit-btn" onclick="splitBatch()">Split Batch</button>
@@ -585,7 +585,7 @@
              PANEL 3 — TRANSFER TO DISTRIBUTOR (Manufacturer)
              POST /batch/ship-dist
              ════════════════════════════════════════════════ -->
-        <div id="panel-transfer" class="panel">
+<div id="panel-transfer" class="panel">
           <div class="card">
             <div class="card-hdr">
               <span class="card-hdr-t">🚚 Ship to Distributor</span>
@@ -598,22 +598,10 @@
                   <input type="text" id="sd-batch-id" placeholder="e.g. BATCH-2025-001" />
                 </div>
                 <div class="fld">
-                  <label>Your Private Key (Current Owner)</label>
-                  <input type="password" id="sd-pk" placeholder="0x…" />
+                  <label>Distributor Username</label>
+                  <input type="text" id="sd-new-name" placeholder="e.g. global_dist" />
+                  <span class="fld-hint">The exact username of the registered distributor.</span>
                 </div>
-                <div class="fld">
-                  <label>Distributor Wallet Address (new_owner_id)</label>
-                  <input type="text" id="sd-new-pk" placeholder="0x…" />
-                  <span class="fld-hint">Blockchain address of the receiving distributor.</span>
-                </div>
-                <div class="fld">
-                  <label>Distributor Name</label>
-                  <input type="text" id="sd-new-name" placeholder="e.g. Global Pharma Distributors" />
-                </div>
-              </div>
-              <div class="fld">
-                <label>Distributor Delivery Address (Location)</label>
-                <input type="text" id="sd-new-addr" placeholder="e.g. 42 Logistics Park, Delhi" />
               </div>
               <div class="factions">
                 <button type="button" class="btn btn-p" id="sd-submit-btn" onclick="shipToDist()">Initiate Shipment</button>
@@ -623,10 +611,6 @@
           </div>
         </div>
 
-        <!-- ════════════════════════════════════════════════
-             PANEL 4 — ACCEPT DELIVERY (Distributor)
-             POST /batch/receive-dist
-             ════════════════════════════════════════════════ -->
         <div id="panel-accept" class="panel">
           <div class="card">
             <div class="card-hdr">
@@ -634,19 +618,10 @@
               <span style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:var(--muted);">POST /batch/receive-dist</span>
             </div>
             <div class="card-body">
-              <div class="fld-grid">
-                <div class="fld">
-                  <label>Batch ID</label>
-                  <input type="text" id="ad-batch-id" placeholder="e.g. BATCH-2025-001" />
-                </div>
-                <div class="fld">
-                  <label>Your Private Key (Distributor)</label>
-                  <input type="password" id="ad-pk" placeholder="0x…" />
-                </div>
-                <div class="fld">
-                  <label>Your Blockchain Address</label>
-                  <input type="text" id="ad-addr" placeholder="0x…" />
-                </div>
+              <div class="fld">
+                <label>Batch ID</label>
+                <input type="text" id="ad-batch-id" placeholder="e.g. BATCH-2025-001" />
+                <span class="fld-hint">Your credentials are automatically verified via your secure session.</span>
               </div>
               <div class="factions">
                 <button type="button" class="btn btn-p" id="ad-submit-btn" onclick="acceptDelivery()">Confirm Receipt</button>
@@ -656,10 +631,6 @@
           </div>
         </div>
 
-        <!-- ════════════════════════════════════════════════
-             PANEL 5 — SHIP TO PHARMACY (Distributor)
-             POST /batch/ship-pharma
-             ════════════════════════════════════════════════ -->
         <div id="panel-transfer-pharmacy" class="panel">
           <div class="card">
             <div class="card-hdr">
@@ -673,21 +644,10 @@
                   <input type="text" id="sp2-batch-id" placeholder="e.g. BATCH-2025-001-S1" />
                 </div>
                 <div class="fld">
-                  <label>Your Private Key (Distributor)</label>
-                  <input type="password" id="sp2-pk" placeholder="0x…" />
+                  <label>Pharmacy Username</label>
+                  <input type="text" id="sp2-new-name" placeholder="e.g. city_pharmacy" />
+                  <span class="fld-hint">The exact username of the registered pharmacy.</span>
                 </div>
-                <div class="fld">
-                  <label>Pharmacy Wallet Address (new_owner_id)</label>
-                  <input type="text" id="sp2-new-pk" placeholder="0x…" />
-                </div>
-                <div class="fld">
-                  <label>Pharmacy Name</label>
-                  <input type="text" id="sp2-new-name" placeholder="e.g. City Care Pharmacy" />
-                </div>
-              </div>
-              <div class="fld">
-                <label>Pharmacy Physical Address</label>
-                <input type="text" id="sp2-new-addr" placeholder="e.g. 12 MG Road, Chennai" />
               </div>
               <div class="factions">
                 <button type="button" class="btn btn-p" id="sp2-submit-btn" onclick="shipToPharma()">Ship to Pharmacy</button>
@@ -697,10 +657,6 @@
           </div>
         </div>
 
-        <!-- ════════════════════════════════════════════════
-             PANEL 6 — ACCEPT AT PHARMACY (Pharmacy)
-             POST /batch/receive-pharma
-             ════════════════════════════════════════════════ -->
         <div id="panel-pharmacy-accept" class="panel">
           <div class="card">
             <div class="card-hdr">
@@ -708,19 +664,10 @@
               <span style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:var(--muted);">POST /batch/receive-pharma</span>
             </div>
             <div class="card-body">
-              <div class="fld-grid">
-                <div class="fld">
-                  <label>Batch ID</label>
-                  <input type="text" id="ap-batch-id" placeholder="e.g. BATCH-2025-001-S1" />
-                </div>
-                <div class="fld">
-                  <label>Your Private Key (Pharmacy)</label>
-                  <input type="password" id="ap-pk" placeholder="0x…" />
-                </div>
-                <div class="fld">
-                  <label>Your Blockchain Address</label>
-                  <input type="text" id="ap-addr" placeholder="0x…" />
-                </div>
+              <div class="fld">
+                <label>Batch ID</label>
+                <input type="text" id="ap-batch-id" placeholder="e.g. BATCH-2025-001-S1" />
+                <span class="fld-hint">Your credentials are automatically verified via your secure session.</span>
               </div>
               <div class="factions">
                 <button type="button" class="btn btn-p" id="ap-submit-btn" onclick="acceptPharma()">Confirm Receipt</button>
@@ -730,10 +677,6 @@
           </div>
         </div>
 
-        <!-- ════════════════════════════════════════════════
-             PANEL 7 — SELL DRUG UNIT (Pharmacy)
-             POST /batch/drug-status
-             ════════════════════════════════════════════════ -->
         <div id="panel-sell" class="panel">
           <div class="card">
             <div class="card-hdr">
@@ -742,7 +685,7 @@
             </div>
             <div class="card-body">
               <p style="font-size:0.82rem;color:var(--muted);margin-bottom:1rem;">
-                Scan the individual drug strip QR or enter the Drug ID (format: <code style="font-family:'IBM Plex Mono',monospace;">BATCH-2025-001-D15</code>).
+                Scan the individual drug strip QR or enter the Drug ID.
               </p>
               <div class="fld-grid">
                 <div class="fld">
@@ -753,18 +696,13 @@
                   <label>Drug Unit ID</label>
                   <input type="text" id="sl-drug-id" placeholder="e.g. BATCH-2025-001-D15" />
                 </div>
-                <div class="fld" style="grid-column: 1 / -1;">
-                  <label>Your Private Key (Pharmacy)</label>
-                  <input type="password" id="sl-pk" placeholder="0x…" />
-                </div>
               </div>
               <div class="factions">
                 <button type="button" class="btn btn-p" id="sl-submit-btn" onclick="sellDrug()">Mark as Sold</button>
               </div>
               <pre class="api-resp" id="sl-resp"></pre>
             </div>
-          </div>
-          <!-- Quick batch QR lookup -->
+          </div>          <!-- Quick batch QR lookup -->
           <div class="card">
             <div class="card-hdr"><span class="card-hdr-t">🔳 Get Drug/Batch QR</span></div>
             <div class="card-body">
@@ -773,7 +711,7 @@
                 <input type="text" id="qr-lookup-id" placeholder="e.g. BATCH-2025-001-D15 or BATCH-2025-001" />
               </div>
               <div class="factions">
-                <button type="button" class="btn btn-g" onclick="window.open(`${API()}/batch/get-qr/${document.getElementById('qr-lookup-id').value.trim()}`, '_blank')">
+                <button type="button" class="btn btn-g" onclick="openQrImage()">
                   🔗 Open QR Image
                 </button>
               </div>
@@ -891,6 +829,13 @@
        GLOBAL OVERLAYS & MODALS
        ═══════════════════════════════════════════════════════ -->
   <div class="toast-wrap" id="toasts"></div>
+  
+<div id="hidden-qr-reader" style="position: absolute; left: -9999px; width: 400px; height: 400px;"></div>
+
+  <label id="global-scan-btn" class="btn btn-p" style="display: none; position: fixed; bottom: 30px; right: 30px; border-radius: 50px; padding: 15px 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); z-index: 1000; cursor: pointer;">
+    📁 Upload QR
+    <input type="file" accept="image/*" style="display: none;" onchange="handleQRUpload(event)">
+  </label>
 
   <div id="bounty-modal" class="allergy-modal">
     <div class="allergy-content" style="max-width: 450px; text-align: center;">
