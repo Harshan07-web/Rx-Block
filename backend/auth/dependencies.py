@@ -11,8 +11,8 @@ from auth.auth_models import User
  
 load_dotenv()
  
-SECRET_KEY = os.getenv("SUPER_SECRET_KEY")
-ALGORITHM  = os.getenv("ALGORITHM")
+SECRET_KEY = os.getenv("SUPER_SECRET_KEY", "change-me-in-production")
+ALGORITHM  = os.getenv("ALGORITHM", "HS256")
  
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
  
@@ -26,7 +26,7 @@ def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]) -> dict:
     try:
         payload  = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
-        role: str     = payload.get("role")
+        role: str  = payload.get("role")
         user_id: int  = payload.get("user_id")
  
         if username is None or role is None or user_id is None:
@@ -55,7 +55,7 @@ def require_role(*allowed_roles: str):
 def get_authed_user(*allowed_roles: str):
     def _checker(
         current_user: dict = Depends(require_role(*allowed_roles)),
-        auth_db: Session    = Depends(_get_auth_db),
+        auth_db: Session = Depends(_get_auth_db),
     ):
         user = auth_db.query(User).filter(User.id == current_user["user_id"]).first()
         if not user:

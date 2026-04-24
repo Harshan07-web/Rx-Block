@@ -92,14 +92,6 @@ contract DrugSupply {
     }
 
     // -----------------------------
-    // GOVERNANCE (Simplified for Demo)
-    // -----------------------------
-    function assignRole(address _account, Role _role) external {
-        require(isValidator[msg.sender], "Only validators can assign roles");
-        roles[_account] = _role;
-    }
-
-    // -----------------------------
     // 1. CREATION & SPLITTING
     // -----------------------------
     function createBatch(
@@ -253,5 +245,74 @@ contract DrugSupply {
     
     function verifyItem(string memory _itemId) external view returns (bool) {
         return isItemSold[_itemId];
+    }
+
+    // =============================================================
+    // 5. DECENTRALIZED GOVERNANCE (PROPOSE & VOTE)
+    // =============================================================
+
+    struct Proposal {
+        uint256 id;
+        address targetAccount;
+        Role proposedRole;
+        uint256 voteCount;
+        bool executed;
+    }
+
+    uint256 public proposalCount;
+    mapping(uint256 => Proposal) public proposals;
+    
+    // Tracks if a specific validator has already voted on a specific proposal
+    // Mapping: ProposalID => (Validator Address => HasVoted)
+    mapping(uint256 => mapping(address => bool)) public hasVoted;
+
+    // Governance Events
+    event ProposalCreated(uint256 indexed proposalId, address indexed targetAccount, Role proposedRole, address proposer);
+    event Voted(uint256 indexed proposalId, address indexed voter, uint256 currentVoteCount);
+    event ProposalExecuted(uint256 indexed proposalId, address indexed targetAccount, Role assignedRole);
+
+    /**
+     * @dev Step 1: A Validator proposes a new company to join the network.
+     */
+    function proposeCompany(address _account, Role _role) external onlyRole(Role.VALIDATOR) {
+        require(roles[_account] == Role.NONE, "Account already has a role in the network");
+        require(_role == Role.MANUFACTURER || _role == Role.DISTRIBUTOR || _role == Role.PHARMACY, "Can only propose supply chain roles");
+
+        proposalCount++;
+        
+        proposals[proposalCount] = Proposal({
+            id: proposalCount,
+            targetAccount: _account,
+            proposedRole: _role,
+            voteCount: 0,
+            executed: false
+        });
+
+        emit ProposalCreated(proposalCount, _account, _role, msg.sender);
+    }
+
+    /**
+     * @dev Step 2: Other Validators vote. If votes > 3 (meaning 4 total), it auto-executes.
+     */
+    function voteOnProposal(uint256 _proposalId) external onlyRole(Role.VALIDATOR) {
+        Proposal storage p = proposals[_proposalId];
+        
+        require(p.id != 0, "Proposal does not exist");
+        require(!p.executed, "Proposal has already been approved and executed");
+        require(!hasVoted[_proposalId][msg.sender], "You have already voted on this proposal");
+
+        // Record the vote
+        hasVoted[_proposalId][msg.sender] = true;
+        p.voteCount++;
+
+        emit Voted(_proposalId, msg.sender, p.voteCount);
+
+        // Auto-Execute if it hits the threshold (> 3 means 4 or more votes)
+        if (p.voteCount > 3) {
+            p.executed = true;
+            roles[p.targetAccount] = p.proposedRole;
+            
+            emit ProposalExecuted(_proposalId, p.targetAccount, p.proposedRole);
+        }
     }
 }

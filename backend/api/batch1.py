@@ -10,7 +10,7 @@ from auth.auth_models import User
 from auth.auth_database import local_session
 
 from services.blockchain_service import blockchain
-from services.qr import generate_qr_image
+from services.qr import generate_batch_qr, generate_drug_qr
 from database.database import get_db
 from models.batch_model import DrugBatch, DrugItem, BatchStatus
 from services.hash import generate_secure_hash
@@ -115,8 +115,6 @@ async def create_batch_t1(payload:CreateBatchT1,auth = Depends(get_authed_user("
             "ts":timestamp.isoformat(),
         })
 
-        qr_img = generate_qr_image(unique_hash, is_batch=True)
-
         receipt = blockchain.create_batch(
             payload.batch_id, unique_hash, payload.batch_quantity,
             private_key=user.private_key
@@ -144,17 +142,13 @@ async def create_batch_t1(payload:CreateBatchT1,auth = Depends(get_authed_user("
         db.bulk_insert_mappings(DrugItem, drug_items)
         db.commit()
 
-        return StreamingResponse(
-            qr_img,
-            media_type="image/png",
-            headers={
+        return {
                 "Status": "Success",
                 "Blockchain_hash": unique_hash,
-                "db_id": new_batch.batch_id,
+                "batch_id": payload.batch_id,
                 "transaction": receipt.transactionHash.hex(),
                 "created_by": current_user["username"],
-            },
-        )
+            }
 
     except Exception as e:
         db.rollback()
@@ -403,6 +397,7 @@ async def sell_drug(payload:  SellDrug,auth = Depends(get_authed_user("PHARMACY"
             "status": "success",
             "sold_unit": payload.drug_id,
             "sold_by":current_user["username"],
+            "sold_at": drug.sold_at
         }
 
     except Exception as e:
@@ -494,6 +489,13 @@ async def verify_batch(batch_id:str,current_user: dict = Depends(get_current_use
         chain = blockchain.get_batch_data(batch_id)
         chain_hash = chain[2]   
 
+        history_records = db.query(BatchStatus).filter(BatchStatus.batch_id == batch_id).order_by(BatchStatus.timestamp.desc()).all()
+        history = [{
+            "status" : h.status,
+            "location" : h.location,
+            "timestamp" : h.timestamp.isoformat()
+        }for h in history_records]
+
         if recomputed == chain_hash:
             return {
                 "status": "VERIFIED",
@@ -520,7 +522,7 @@ async def verify_batch(batch_id:str,current_user: dict = Depends(get_current_use
 
 
 @router.get("/verify_drug/{drug_id}")
-async def verify_drug(drug_id:str,current_user: dict = Depends(get_current_user),db: Session = Depends(get_db),):
+async def verify_drug(drug_id:str,db: Session = Depends(get_db),):
     item = db.query(DrugItem).filter(DrugItem.drug_id == drug_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Drug ID not found")
@@ -544,6 +546,15 @@ async def verify_drug(drug_id:str,current_user: dict = Depends(get_current_user)
 
         chain_data = blockchain.get_batch_data(batch.batch_id)
         chain_hash  = chain_data[2]
+
+        history_records = db.query(BatchStatus).filter(BatchStatus.batch_id == batch.batch_id).order_by(BatchStatus.timestamp.desc()).all()
+        history = [{
+            "status" : h.status,
+            "location" : h.location,
+            "timestamp" : h.timestamp.isoformat()
+        }for h in history_records]
+
+
         is_authentic = recomputed == chain_hash
 
         return {
@@ -562,24 +573,28 @@ async def verify_drug(drug_id:str,current_user: dict = Depends(get_current_user)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Verification failed: {e}")
 
-
-@router.get("/get-qr/{identifier}")
-async def get_qr(identifier:str,current_user: dict = Depends(get_current_user),):
-    is_batch = "-D" not in identifier
-    return StreamingResponse(
-        generate_qr_image(identifier, is_batch=is_batch),
-        media_type="image/png",
-    )
-
-
 @router.get("/role/{address}")
 async def check_role(address:str,current_user: dict = Depends(get_current_user),):
     try:
         role_index = blockchain.get_role(address)
         return {
-            "address":    address,
+            "address": address,
             "role_index": role_index,
-            "role":       ROLE_MAP.get(role_index, "UNKNOWN"),
+            "role":  ROLE_MAP.get(role_index, "UNKNOWN"),
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Role lookup failed: {e}")
+    
+
+@router.get("/qr/{identifier}", tags=["Utilities"])
+def get_qr_code(identifier: str):
+    try:
+        if "-D" in identifier:
+            qr_buffer = generate_drug_qr(identifier)
+        else:
+            qr_buffer = generate_batch_qr(identifier)
+            
+        return StreamingResponse(qr_buffer, media_type="image/png")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate QR: {e}")

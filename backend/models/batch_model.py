@@ -22,6 +22,7 @@ class DrugItem(base):
     batch_id = Column(VARCHAR(255), ForeignKey("batch_info.batch_id"))
     drug_id = Column(VARCHAR(255),primary_key=True)
     is_sold = Column(Boolean)
+    sold_at = Column(DateTime)
 
 class BatchStatus(base):
     __tablename__ = "batch_status"
