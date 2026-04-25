@@ -1,5 +1,1 @@
-# Project Contributors
-Thank you to everyone who has helped build Rx-Block!
-
-#
-
+#Shout out to all the contributors
