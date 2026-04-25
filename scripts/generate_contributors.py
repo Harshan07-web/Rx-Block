@@ -7,14 +7,13 @@ response = requests.get(url)
 contributors = response.json()
 
 with open("CONTRIBUTORS.md", "w", encoding="utf-8") as f:
-    f.write("# Contributors\n\n")
-    
+    f.write("# 👥 Contributors\n\n")
+
     for c in contributors:
         username = c["login"]
         profile = c["html_url"]
-        avatar = c["avatar_url"]
+        contributions = c["contributions"]
 
-        f.write(f"![{username}]({avatar}&s=50) ")
-        f.write(f"[{username}]({profile})\n\n")
+        f.write(f"- [{username}]({profile}) — {contributions} commits\n")
 
 print("Contributors file updated!")
