@@ -1,3 +1,4 @@
 # Contributors
 
-Thank you to everyone who has contributed!
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- ALL-CONTRIBUTORS-LIST:END -->
