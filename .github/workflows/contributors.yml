@@ -1,0 +1,27 @@
+name: Automate Contributors List
+
+# Tell GitHub WHEN to run this script
+on:
+  push:
+    branches:
+      - main  # Runs every time code is pushed to the main branch
+  schedule:
+    - cron: '0 0 * * 0' # Also runs automatically every Sunday at midnight as a backup
+
+jobs:
+  update-contributors:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Update Contributors
+        uses: akhilmhdh/contributors-readme-action@v2.3.10
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Tell it which file to target (defaults to README.md if left blank)
+          readme_path: "CONTRIBUTORS.md"
+          # Optional: Customize how the contributors look
+          image_size: 50
+          columns_per_row: 6
