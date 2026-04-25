@@ -1,27 +1,33 @@
-name: Automate Contributors List
+name: Auto Update Contributors
 
-# Tell GitHub WHEN to run this script
 on:
-  push:
-    branches:
-      - main  # Runs every time code is pushed to the main branch
   schedule:
-    - cron: '0 0 * * 0' # Also runs automatically every Sunday at midnight as a backup
+    - cron: "0 0 * * *"   # runs daily
+  workflow_dispatch:      # manual trigger
 
 jobs:
-  update-contributors:
+  update:
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
 
-      - name: Update Contributors
-        uses: akhilmhdh/contributors-readme-action@v2.3.10
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
         with:
-          # Tell it which file to target (defaults to README.md if left blank)
-          readme_path: "CONTRIBUTORS.md"
-          # Optional: Customize how the contributors look
-          image_size: 50
-          columns_per_row: 6
+          python-version: "3.x"
+
+      - name: Install requests
+        run: pip install requests
+
+      - name: Generate contributors file
+        run: python backend/scripts/generate_contributors.py
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add CONTRIBUTORS.md
+          git commit -m "auto: update contributors" || echo "No changes"
+          git push
