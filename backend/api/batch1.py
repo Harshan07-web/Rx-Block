@@ -269,7 +269,8 @@ async def ship_to_distributor(payload:ShipToDist,auth = Depends(get_authed_user(
             batch_id = payload.batch_id,
             status = "IN_TRANSIT_TO_DIST",
             location = f"En route to {payload.recipient_username}",
-            lat=0.0, lng=0.0,
+            lat = recipient.lat,
+            lng = recipient.lng,
             timestamp = datetime.now(timezone.utc),
         ))
         db.commit()
@@ -303,7 +304,8 @@ async def receive_at_distributor(
             batch_id  = payload.batch_id,
             status = "AT_DISTRIBUTOR",
             location = f"Received by {current_user['username']}",
-            lat=0.0, lng=0.0,
+            lat = user.lat,
+            lng = user.lng,
             timestamp = datetime.now(timezone.utc),
         ))
         db.commit()
@@ -346,7 +348,8 @@ async def ship_to_pharmacy(payload: ShipToPharma,auth = Depends(get_authed_user(
             batch_id  = payload.batch_id,
             status  = "IN_TRANSIT_TO_PHARM",
             location = f"En route to {payload.recipient_username}",
-            lat=0.0, lng=0.0,
+            lat = recipient.lat,
+            lng = recipient.lng,
             timestamp = datetime.now(timezone.utc),
         ))
         db.commit()
@@ -379,7 +382,8 @@ async def receive_at_pharmacy(payload: ReceiveAtPharma, auth = Depends(get_authe
             batch_id  = payload.batch_id,
             status = "AT_PHARMACY",
             location = f"Received by {current_user['username']}",
-            lat=0.0, lng=0.0,
+            lat = user.lat,
+            lng = user.lng,
             timestamp = datetime.now(timezone.utc),
         ))
         db.commit()
@@ -430,12 +434,38 @@ def get_batch_details(batch_id:str,current_user: dict = Depends(get_current_user
     if not batch:
         raise HTTPException(status_code=404, detail="Batch not found")
 
-    latest_status = (
+    status_rows = (
         db.query(BatchStatus)
         .filter(BatchStatus.batch_id == batch_id)
-        .order_by(BatchStatus.timestamp.desc())
-        .first()
+        .order_by(BatchStatus.timestamp.asc())
+        .all()
     )
+    latest = status_rows[-1] if status_rows else None
+
+    auth_db = local_session()
+    try:
+        mfr_user = auth_db.query(User).filter(User.company_name == batch.manufacturer_name).first()
+        mfr_lat  = mfr_user.lat if mfr_user else None
+        mfr_lng  = mfr_user.lng if mfr_user else None
+    finally:
+        auth_db.close()
+
+    history = [{
+        "status": "CREATED",
+        "location": batch.manufacturer_name,
+        "lat": mfr_lat,
+        "lng": mfr_lng,
+        "timestamp": str(batch.created_at),
+    }] + [
+        {
+            "status":row.status,
+            "location": row.location,
+            "lat": row.lat,
+            "lng":row.lng,
+            "timestamp": str(row.timestamp),
+        }
+        for row in status_rows
+    ]
 
     return {
         "batch_id":batch.batch_id,
@@ -445,8 +475,9 @@ def get_batch_details(batch_id:str,current_user: dict = Depends(get_current_user
         "mfd_date":batch.mfd,
         "exp_date":batch.exp,
         "quantity":batch.tot_drugs,
-        "status":latest_status.status if latest_status else "CREATED",
-        "location":latest_status.location if latest_status else None,
+        "status": latest.status if latest else "CREATED",
+        "location":latest.location if latest else batch.manufacturer_name,
+        "history": history,
     }
 
 
@@ -587,7 +618,6 @@ async def get_qr_code(identifier: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate QR: {e}")
     
-
 @router.post("/request_access")
 async def new_chain_member(payload: NewUser, db : Session = Depends(get_auth_db)):
     exists = db.query(User).filter(payload.username == User.username).first()
@@ -597,6 +627,9 @@ async def new_chain_member(payload: NewUser, db : Session = Depends(get_auth_db)
 
     hashed_pass = hashpass(payload.password)
 
+    lat = payload.lat
+    lng = payload.lng
+
     new_chain_user = User(
         username = payload.username,
         email = payload.email,
@@ -604,7 +637,9 @@ async def new_chain_member(payload: NewUser, db : Session = Depends(get_auth_db)
         requested_role = payload.req_role,
         company_name = payload.company_name,
         wallet_address = payload.acc_address,
-        private_key = payload.private_key
+        private_key = payload.private_key,
+        lat = lat,
+        lng = lng
     )
 
     db.add(new_chain_user)

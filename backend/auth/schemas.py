@@ -15,7 +15,9 @@ class NewUser(BaseModel):
     req_role:ChainRole
     company_name : str
     acc_address:str       
-    private_key : str 
+    private_key : str
+    lat: float | None = None
+    lng: float | None = None 
     @field_validator("username")
     @classmethod
     def username_no_spaces(cls, v: str) -> str:

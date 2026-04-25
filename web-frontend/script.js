@@ -169,9 +169,41 @@ async function handleMemberLogin() {
 
 /* ── Chain member registration (DAO Waiting Room) ── */
 /* ── UI Toggle for Enterprise Auth ── */
+let signupMap    = null;
+let signupMarker = null;
+
 function toggleEnterpriseAuth(mode) {
-  document.getElementById('cm-login-box').style.display = mode === 'login' ? 'block' : 'none';
+  document.getElementById('cm-login-box').style.display    = mode === 'login'    ? 'block' : 'none';
   document.getElementById('cm-register-box').style.display = mode === 'register' ? 'block' : 'none';
+
+  /* Init the location picker map the first time the register panel opens */
+  if (mode === 'register' && !signupMap) {
+    setTimeout(() => {
+      signupMap = L.map('signup-map', { zoomControl: true }).setView([20.5937, 78.9629], 5);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(signupMap);
+
+      signupMap.on('click', function(e) {
+        const { lat, lng } = e.latlng;
+
+        /* Move or place marker */
+        if (signupMarker) {
+          signupMarker.setLatLng([lat, lng]);
+        } else {
+          signupMarker = L.circleMarker([lat, lng], {
+            radius: 10, fillColor: '#1478d4', color: '#fff', weight: 3, fillOpacity: 1,
+          }).addTo(signupMap);
+        }
+
+        /* Store in hidden inputs */
+        document.getElementById('reg-lat').value = lat.toFixed(6);
+        document.getElementById('reg-lng').value = lng.toFixed(6);
+
+        /* Update label */
+        document.getElementById('signup-map-label').textContent =
+          `📍 ${lat.toFixed(4)}, ${lng.toFixed(4)} — click again to reposition`;
+      });
+    }, 100); /* small delay so the container is visible before Leaflet measures it */
+  }
 }
 
 /* ── Chain member registration (DAO Waiting Room) ── */
@@ -182,40 +214,43 @@ async function submitApplication() {
   const wallet  = document.getElementById('reg-wallet').value.trim();
   const username= document.getElementById('reg-user').value.trim();
   const password= document.getElementById('reg-pass').value.trim();
-  const pk = document.getElementById('reg-pk').value.trim();
+  const pk      = document.getElementById('reg-pk').value.trim();
+  const lat     = parseFloat(document.getElementById('reg-lat').value);
+  const lng     = parseFloat(document.getElementById('reg-lng').value);
 
   if (!role || !company || !email || !wallet || !username || !password) {
-    return toast('All 6 fields are required to apply.', 'er');
+    return toast('All fields are required to apply.', 'er');
+  }
+  if (!lat || !lng) {
+    return toast('Please pin your facility location on the map.', 'er');
   }
 
   try {
-    // 🚀 Hits your FastAPI Waiting Room endpoint
-    // NOTE: Make sure the prefix here matches your docs! (e.g., /batch/request_access)
     const res = await fetch(`${API()}/batch/request_access`, {
-      method: 'POST', 
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        username: username, 
-        password: password,
-        email: email,
-        req_role: role,
+      body: JSON.stringify({
+        username,
+        password,
+        email,
+        req_role:     role,
         company_name: company,
-        acc_address: wallet,
-        private_key: pk
+        acc_address:  wallet,
+        private_key:  pk,
+        lat,
+        lng,
       }),
     });
-    
+
     const data = await res.json();
     if (!res.ok) throw new Error(extractDetail(data));
-    
+
     toast('Application submitted! Please wait for DAO Validator approval.', 'ok');
-    
-    // Switch the UI back to login mode & close the modal
     toggleEnterpriseAuth('login');
     document.getElementById('auth-modal').classList.remove('show');
-    
-  } catch (e) { 
-    toast(e.message, 'er'); 
+
+  } catch (e) {
+    toast(e.message, 'er');
   }
 }
 
@@ -300,26 +335,103 @@ function logoutUser() {
 }
 
 /* ── Map ── */
-function initRealMap(status) {
+/*
+ * initRealMap(history)
+ *
+ * history = array of { status, location, lat, lng, timestamp }
+ * from the /batch/batch-det or /batch/verify_drug endpoint.
+ *
+ * Falls back to hardcoded Indian city coords only when a step
+ * has no lat/lng stored (e.g. old rows written before geocoding).
+ */
+const FALLBACK_COORDS = {
+  CREATED:              [20.5937, 78.9629],   // India centre — manufacturer unknown
+  IN_TRANSIT_TO_DIST:   [23.2599, 77.4126],   // midpoint India
+  AT_DISTRIBUTOR:       [28.7041, 77.1025],   // Delhi area
+  IN_TRANSIT_TO_PHARM:  [19.0760, 72.8777],   // Mumbai area
+  AT_PHARMACY:          [13.0827, 80.2707],   // Chennai area
+  SOLD:                 [13.0827, 80.2707],
+};
+
+const STATUS_LABELS = {
+  CREATED:              '🏭 Manufacturer',
+  IN_TRANSIT_TO_DIST:   '🚚 En Route to Distributor',
+  AT_DISTRIBUTOR:       '📦 Distributor Hub',
+  IN_TRANSIT_TO_PHARM:  '🚐 En Route to Pharmacy',
+  AT_PHARMACY:          '🏥 Pharmacy',
+  SOLD:                 '✅ Dispensed',
+};
+
+function initRealMap(history) {
   if (leafletMap) { leafletMap.remove(); leafletMap = null; }
-  leafletMap = L.map('real-map', { zoomControl:false }).setView([21,78],5);
+  leafletMap = L.map('real-map', { zoomControl: false }).setView([20.5937, 78.9629], 5);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(leafletMap);
-  const locs = { factory:[19.076,72.8777], distributor:[28.7041,77.1025], pharmacy:[13.0827,80.2707] };
-  const wp = [L.latLng(locs.factory)];
-  if (status !== 'CREATED') wp.push(L.latLng(locs.distributor));
-  if (status === 'AT_PHARMACY' || status === 'SOLD') wp.push(L.latLng(locs.pharmacy));
-  if (wp.length > 1) {
-    L.Routing.control({
-      waypoints: wp,
-      lineOptions: { styles:[{ color:'#1478d4', opacity:0.8, weight:6 }] },
-      createMarker: (i, wpp) => L.circleMarker(wpp.latLng, { radius:10, fillColor:'#1478d4', color:'#fff', weight:3, fillOpacity:1 })
-        .bindTooltip(['Factory','Logistics Hub','Pharmacy'][i], { permanent:true, direction:'top', className:'map-tooltip' }),
-      addWaypoints:false, draggableWaypoints:false, routeWhileDragging:false,
-    }).addTo(leafletMap);
-    setTimeout(() => leafletMap.fitBounds(new L.featureGroup(wp.map(w=>L.marker(w))).getBounds(), { padding:[50,50] }), 500);
-  } else {
-    L.circleMarker(locs.factory, { radius:10, fillColor:'#1478d4', color:'#fff', weight:3, fillOpacity:1 })
-      .addTo(leafletMap).bindTooltip('🏭 Factory (Origin)', { permanent:true, direction:'top' });
+
+  /* Build steps — use real coords where available, fallback for nulls/zeros */
+  let steps = (Array.isArray(history) ? history : []).map(step => {
+    const fb  = FALLBACK_COORDS[step.status] || [20.5937, 78.9629];
+    const lat = (step.lat && Math.abs(step.lat) > 0.001) ? step.lat : fb[0];
+    const lng = (step.lng && Math.abs(step.lng) > 0.001) ? step.lng : fb[1];
+    const isApprox = !(step.lat && Math.abs(step.lat) > 0.001);
+    return { ...step, lat, lng, isApprox };
+  });
+
+  /* If history is completely empty (batch just created, no DB status rows yet)
+     synthesise a single CREATED point so the map is never blank */
+  if (!steps.length) {
+    steps = [{
+      status:   'CREATED',
+      location: 'Manufacturer (location not yet registered)',
+      lat:      20.5937,
+      lng:      78.9629,
+      isApprox: true,
+    }];
+  }
+
+  const latLngs = steps.map(s => [s.lat, s.lng]);
+
+  /* Polyline between all steps */
+  if (latLngs.length > 1) {
+    L.polyline(latLngs, { color: '#1478d4', weight: 4, opacity: 0.8, dashArray: '8, 6' }).addTo(leafletMap);
+  }
+
+  /* Markers */
+  const markerLayer = L.featureGroup();
+  steps.forEach((step, i) => {
+    const isLast = i === steps.length - 1;
+    const label  = STATUS_LABELS[step.status] || step.status;
+
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="
+        width:${isLast ? 18 : 13}px; height:${isLast ? 18 : 13}px;
+        background:${isLast ? '#1478d4' : '#64a8f5'};
+        border: 3px solid #fff; border-radius:50%;
+        box-shadow: 0 0 0 ${isLast ? '4px rgba(20,120,212,0.3)' : 'none'};
+      "></div>`,
+      iconSize:   [isLast ? 18 : 13, isLast ? 18 : 13],
+      iconAnchor: [isLast ? 9  : 6,  isLast ? 9  : 6],
+    });
+
+    const tooltipHtml = `
+      <div style="font-family:'IBM Plex Mono',monospace; font-size:0.7rem; min-width:160px;">
+        <div style="font-weight:700; margin-bottom:3px;">${label}</div>
+        <div style="opacity:.8">${step.location || '—'}</div>
+        ${step.isApprox ? '<div style="color:#f59e0b;margin-top:3px;">⚠ approximate location</div>' : ''}
+        ${step.timestamp ? `<div style="opacity:.6; margin-top:3px; font-size:0.65rem;">${new Date(step.timestamp).toLocaleString()}</div>` : ''}
+      </div>`;
+
+    L.marker([step.lat, step.lng], { icon })
+      .addTo(markerLayer)
+      .bindTooltip(tooltipHtml, { permanent: isLast, direction: 'top', className: 'map-tooltip' });
+  });
+
+  markerLayer.addTo(leafletMap);
+
+  /* fitBounds only when we have more than one unique point */
+  const bounds = markerLayer.getBounds();
+  if (bounds.isValid() && latLngs.length > 1) {
+    leafletMap.fitBounds(bounds, { padding: [50, 50], maxZoom: 13 });
   }
 }
 function toggleMapExpansion() {
@@ -332,10 +444,39 @@ function toggleMapExpansion() {
 /* ── Batch lookup ── */
 const STO = ['CREATED','IN_DISTRIBUTION','AT_DISTRIBUTOR','AT_PHARMACY','SOLD'];
 const MOCK_DB = {
-  'TEST-001':  { bd:{ id:'TEST-001',  status:'SOLD',          is_authentic:true,  mfgDate:'2025-01-10', expDate:'2027-01-10', current_owner:'0xcf1c29507ff3d3dfc630fafcffadf64a334e031f' }, md:{ drug_name:'Amoxicillin 500mg',  manufacturer:'PharmaCorp Ltd.',     side_effects:['Nausea','Diarrhea'],      allergies:['Penicillin']       } },
-  'TEST-002':  { bd:{ id:'TEST-002',  status:'IN_DISTRIBUTION',is_authentic:true,  mfgDate:'2025-03-01', expDate:'2026-03-01', current_owner:'0x2222333344445555' },           md:{ drug_name:'Cetirizine 10mg',     manufacturer:'Sun Pharma',          side_effects:['Drowsiness','Dry Mouth'], allergies:['Antihistamines']   } },
-  'TEST-FAKE': { bd:{ id:'TEST-FAKE', status:'UNKNOWN',        is_authentic:false, mfgDate:'—',          expDate:'—',          current_owner:'—' },                            md: null },
-  'TEST-DOLO': { bd:{ id:'TEST-DOLO', status:'AT_PHARMACY',    is_authentic:true,  mfgDate:'2025-02-15', expDate:'2028-02-15', current_owner:'0xcf1c2950' },                   md:{ drug_name:'Dolo 650',           manufacturer:'Micro Labs',          side_effects:['Nausea','Liver Warning'], allergies:['Paracetamol']      } },
+  'TEST-001':  {
+    bd:{ id:'TEST-001', status:'SOLD', is_authentic:true, mfgDate:'2025-01-10', expDate:'2027-01-10', current_owner:'0xcf1c29507ff3d3dfc630fafcffadf64a334e031f' },
+    md:{ drug_name:'Amoxicillin 500mg', manufacturer:'PharmaCorp Ltd.', side_effects:['Nausea','Diarrhea'], allergies:['Penicillin'] },
+    history:[
+      { status:'CREATED',             location:'PharmaCorp Ltd., Mumbai',      lat:19.0760, lng:72.8777, timestamp:'2025-01-10T08:00:00' },
+      { status:'IN_TRANSIT_TO_DIST',  location:'En route to Delhi Hub',        lat:23.2599, lng:77.4126, timestamp:'2025-01-12T10:00:00' },
+      { status:'AT_DISTRIBUTOR',      location:'Global Pharma Distributors',   lat:28.7041, lng:77.1025, timestamp:'2025-01-14T09:30:00' },
+      { status:'IN_TRANSIT_TO_PHARM', location:'En route to City Care',        lat:17.3850, lng:78.4867, timestamp:'2025-01-16T11:00:00' },
+      { status:'AT_PHARMACY',         location:'City Care Pharmacy, Chennai',  lat:13.0827, lng:80.2707, timestamp:'2025-01-18T14:00:00' },
+    ]
+  },
+  'TEST-002':  {
+    bd:{ id:'TEST-002', status:'IN_DISTRIBUTION', is_authentic:true, mfgDate:'2025-03-01', expDate:'2026-03-01', current_owner:'0x2222333344445555' },
+    md:{ drug_name:'Cetirizine 10mg', manufacturer:'Sun Pharma', side_effects:['Drowsiness','Dry Mouth'], allergies:['Antihistamines'] },
+    history:[
+      { status:'CREATED',            location:'Sun Pharma, Vadodara',          lat:22.3072, lng:73.1812, timestamp:'2025-03-01T08:00:00' },
+      { status:'IN_TRANSIT_TO_DIST', location:'En route to Distributor',       lat:23.0225, lng:72.5714, timestamp:'2025-03-03T09:00:00' },
+    ]
+  },
+  'TEST-FAKE': {
+    bd:{ id:'TEST-FAKE', status:'UNKNOWN', is_authentic:false, mfgDate:'—', expDate:'—', current_owner:'—' },
+    md: null, history: []
+  },
+  'TEST-DOLO': {
+    bd:{ id:'TEST-DOLO', status:'AT_PHARMACY', is_authentic:true, mfgDate:'2025-02-15', expDate:'2028-02-15', current_owner:'0xcf1c2950' },
+    md:{ drug_name:'Dolo 650', manufacturer:'Micro Labs', side_effects:['Nausea','Liver Warning'], allergies:['Paracetamol'] },
+    history:[
+      { status:'CREATED',             location:'Micro Labs, Bengaluru',         lat:12.9716, lng:77.5946, timestamp:'2025-02-15T08:00:00' },
+      { status:'IN_TRANSIT_TO_DIST',  location:'En route to Hyderabad Hub',     lat:15.3173, lng:75.7139, timestamp:'2025-02-17T10:00:00' },
+      { status:'AT_DISTRIBUTOR',      location:'Pharma Hub, Hyderabad',         lat:17.3850, lng:78.4867, timestamp:'2025-02-19T09:30:00' },
+      { status:'AT_PHARMACY',         location:'City Care Pharmacy, Chennai',   lat:13.0827, lng:80.2707, timestamp:'2025-02-21T14:00:00' },
+    ]
+  },
 };
 
 async function lookupBatch() {
@@ -378,10 +519,17 @@ async function lookupBatch() {
     const savedToken = localStorage.getItem('rx_token');
     if (savedToken) headers['Authorization'] = `Bearer ${savedToken}`;
 
+    // Derive the batch_id for the batch-det call (drug IDs look like BATCH-001-D12)
+    const batchIdForDet = isDrug ? identifier.replace(/-D\d+$/, '') : identifier;
+
     console.log("Fetching from API...");
-    const fetchRes = await fetch(`${API()}${endpoint}`, { headers });
+    const [fetchRes, detRes] = await Promise.all([
+      fetch(`${API()}${endpoint}`, { headers }),
+      fetch(`${API()}/batch/batch-det/${batchIdForDet}`, { headers }),
+    ]);
     const data = await fetchRes.json();
-    console.log("API Response Received:", data);
+    const detData = detRes.ok ? await detRes.json() : null;
+    console.log("API Response Received:", data, "Det:", detData);
     
     if (!fetchRes.ok) throw new Error(data.detail || "Verification failed");
 
@@ -512,6 +660,24 @@ async function lookupBatch() {
       });
     }
 
+    // 8. MAP — use real coords from batch-det history
+    //    If detData has no history (old batch) build a synthetic one from current status
+    let mapHistory = detData?.history || data.history || null;
+    if (!mapHistory || !mapHistory.length) {
+      const currentStatus = data.status || data.blockchain_status || 'CREATED';
+      // Build steps for every stage up to and including current status
+      const stageOrder = ['CREATED','IN_TRANSIT_TO_DIST','AT_DISTRIBUTOR','IN_TRANSIT_TO_PHARM','AT_PHARMACY','SOLD'];
+      const currentIdx = stageOrder.indexOf(currentStatus);
+      mapHistory = stageOrder
+        .slice(0, currentIdx >= 0 ? currentIdx + 1 : 1)
+        .map(s => ({ status: s, location: STATUS_LABELS[s] || s, lat: null, lng: null, timestamp: null }));
+    }
+    console.log('Map history:', mapHistory);
+
+    const splitBody = document.getElementById('res-split-body');
+    if (splitBody) splitBody.style.display = 'grid';
+    initRealMap(mapHistory);
+
     if (pubLoader) pubLoader.style.display = 'none';
     if (resultCard) resultCard.style.display = 'block';
 
@@ -552,7 +718,7 @@ function renderResult(id, b, m) {
   }
   document.getElementById('res-fake-alert').style.display = 'none';
   document.getElementById('res-split-body').style.display = 'grid';
-  initRealMap(b.status);
+  initRealMap(null); /* renderResult used by mock data only — no real history */
 
   const KNOWN = { '0xcf1c29507ff3d3dfc630fafcffadf64a334e031f':'City Care Pharmacy', '0x2222333344445555666677778888999900001111':'Global Pharma Distributors' };
   let owner = b.current_owner || '—';

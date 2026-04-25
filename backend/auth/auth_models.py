@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, VARCHAR, Enum as SAEnum, Boolean
+from sqlalchemy import Column, Integer, VARCHAR, Enum as SAEnum, Boolean, Float
 from auth.auth_database import base
 from auth.schemas import ChainRole
 
@@ -17,6 +17,8 @@ class User(base):
     wallet_address= Column(VARCHAR(255), unique=True, nullable=False)
     is_approved = Column(Boolean,default=False)
     private_key = Column(VARCHAR(255), nullable=False)
+    lat = Column(Float, nullable=True)
+    lng = Column(Float, nullable=True)
 
 class Patient(base):
     __tablename__ = "public_users"

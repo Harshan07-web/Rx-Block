@@ -3,7 +3,7 @@
 <head>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+  <!-- leaflet-routing-machine removed: map now uses real coords + plain polyline -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Rx-Block · Pharmaceutical Supply Chain</title>
@@ -922,6 +922,23 @@
             <input type="password" id="reg-pass" placeholder="Password" style="width: 50%; padding: 10px; border-radius: 8px; background: var(--input-bg); border: 1px solid var(--border); color: var(--text);" />
           </div>
           <input type="password" id="reg-pk" placeholder="Wallet Private Key (0x...)" style="width: 100%; padding: 10px; border-radius: 8px; margin-bottom: 10px; background: var(--input-bg); border: 1px solid var(--border); color: var(--text);" />
+
+          <!-- ── Location Picker ── -->
+          <div style="margin-bottom: 1rem;">
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:0.62rem; letter-spacing:2px; text-transform:uppercase; color:var(--muted); margin-bottom:6px; font-weight:600;">
+              Company Location <span style="color:var(--danger)">*</span>
+            </div>
+            <div style="font-size:0.78rem; color:var(--muted); margin-bottom:8px;">
+              Click on the map to pin your facility's exact location.
+            </div>
+            <div id="signup-map" style="width:100%; height:200px; border-radius:10px; border:1px solid var(--border); overflow:hidden; background:#e8e8e8;"></div>
+            <div id="signup-map-label" style="font-family:'IBM Plex Mono',monospace; font-size:0.68rem; color:var(--muted); margin-top:5px; min-height:18px;">
+              📍 No location selected
+            </div>
+            <!-- hidden inputs sent to backend -->
+            <input type="hidden" id="reg-lat" />
+            <input type="hidden" id="reg-lng" />
+          </div>
 
           <button class="btn btn-warn" style="width: 100%; justify-content: center; background: var(--accent); color: #fff;" onclick="submitApplication()">Submit Application</button>
           
