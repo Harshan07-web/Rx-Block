@@ -12,8 +12,10 @@ class NewUser(BaseModel):
     username: str
     email: EmailStr
     password: str
-    role:ChainRole
-    private_key:str           
+    req_role:ChainRole
+    company_name : str
+    acc_address:str       
+    private_key : str 
     @field_validator("username")
     @classmethod
     def username_no_spaces(cls, v: str) -> str:
@@ -21,10 +23,10 @@ class NewUser(BaseModel):
             raise ValueError("Username must not contain spaces")
         return v.strip()
 
-    @field_validator("private_key")
+    @field_validator("acc_address")
     @classmethod
     def key_starts_with_0x(cls, v: str) -> str:
-        if not v.startswith("0x") or len(v) != 66:
+        if not v.startswith("0x"):
             raise ValueError("private_key must be a 0x-prefixed 32-byte hex string (66 chars)")
         return v
 

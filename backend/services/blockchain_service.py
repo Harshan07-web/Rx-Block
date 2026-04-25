@@ -21,7 +21,7 @@ class BlockchainService:
         )
         
         # Admin key (Usually the deployer/validator)
-        self.admin_private_key = os.getenv("PRIVATE_KEY")
+        self.admin_private_key = os.getenv("ADMIN_PRIVATE_KEY")
 
     def _send_transaction(self, func_call, private_key, gas_limit=2000000):
         account = self.w3.eth.account.from_key(private_key)
@@ -88,11 +88,45 @@ class BlockchainService:
     # -----------------------------
     # 5. GOVERNANCE
     # -----------------------------
-    def assign_role(self, account_address, role_index, private_key=None):
-        """Simplified role assignment from the voting mechanism"""
+    def propose_company(self, account_address, role_index, private_key=None):
         pk = private_key if private_key else self.admin_private_key
-        func = self.contract.functions.assignRole(account_address, role_index)
-        return self._send_transaction(func, pk)
+        func = self.contract.functions.proposeCompany(account_address, role_index)
+        return self._send_transaction(func, pk, gas_limit=300000)
+    
+    def vote_on_proposal(self, proposal_id, private_key=None):
+        pk = private_key if private_key else self.admin_private_key
+        func = self.contract.functions.voteOnProposal(proposal_id)
+        return self._send_transaction(func, pk, gas_limit=300000)
+    
+    def get_proposal_count(self):
+        """Gets the total number of proposals ever created."""
+        return self.contract.functions.proposalCount().call()
+    
+    def add_genesis_validator(self, target_address, private_key=None):
+        """One-time use function to bootstrap the network. Fails after 4 validators exist."""
+        pk = private_key if private_key else self.admin_private_key
+        func = self.contract.functions.addGenesisValidator(target_address)
+        return self._send_transaction(func, pk, gas_limit=300000)
+    
+    def get_proposal(self, proposal_id: int):
+        """Reads a proposal from the smart contract mapping."""
+        proposal_data = self.contract.functions.proposals(proposal_id).call()
+        
+        role_map = {0: "NONE", 1: "MANUFACTURER", 2: "DISTRIBUTOR", 3: "PHARMACY", 4: "VALIDATOR"}
+        
+        return {
+            "proposal_id": proposal_data[0],  # Changed key to proposal_id for the frontend
+            "target_address": proposal_data[1],
+            "role_requested": role_map.get(proposal_data[2], "UNKNOWN"), # Converted to String
+            "vote_count": proposal_data[3],
+            "is_executed": proposal_data[4]
+        }
+    
+    def clear_all_proposals(self, private_key=None):
+        """Emergency function to wipe the active voting board."""
+        pk = private_key if private_key else self.admin_private_key
+        func = self.contract.functions.clearAllProposals()
+        return self._send_transaction(func, pk, gas_limit=500000)
 
     # -----------------------------
     # 6. VIEW/READ FUNCTIONS (No gas required)

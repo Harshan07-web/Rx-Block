@@ -744,29 +744,36 @@
              ════════════════════════════════════════════════ -->
         <div id="panel-propose" class="panel">
           <div class="card">
-            <div class="card-hdr"><span class="card-hdr-t">🏛️ Propose New Company</span></div>
+            <div class="card-hdr">
+              <span class="card-hdr-t">🏛️ Pending Applications</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:var(--danger);">VALIDATOR CLEARANCE REQUIRED</span>
+            </div>
             <div class="card-body">
-              <div class="placeholder-panel">
-                <div class="ph-icon">🚧</div>
-                <h3>Coming Soon</h3>
-                <p>Governance endpoints (propose, vote) require on-chain voting logic. Add <code style="font-family:'IBM Plex Mono',monospace;">blockchain.assign_role()</code> wrapped in a FastAPI route in <code>batch1.py</code> to enable this panel.</p>
-              </div>
+              <p style="font-size:0.82rem;color:var(--muted);margin-bottom:1.5rem;">
+                Review companies requesting to join the network. Propose them to the DAO to initiate voting.
+              </p>
+              
+              <div id="pr-pending-list" style="display: flex; flex-direction: column; gap: 10px;"></div>
+              
+              <pre class="api-resp" id="pr-resp" style="margin-top: 1rem;"></pre>
             </div>
           </div>
         </div>
 
-        <!-- ════════════════════════════════════════════════
-             PANEL 10 — VOTE (Government — placeholder)
-             ════════════════════════════════════════════════ -->
         <div id="panel-vote" class="panel">
           <div class="card">
-            <div class="card-hdr"><span class="card-hdr-t">🗳️ Vote on Proposal</span></div>
+            <div class="card-hdr">
+              <span class="card-hdr-t">🗳️ DAO Voting</span>
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:var(--danger);">VALIDATOR CLEARANCE REQUIRED</span>
+            </div>
             <div class="card-body">
-              <div class="placeholder-panel">
-                <div class="ph-icon">🚧</div>
-                <h3>Coming Soon</h3>
-                <p>Voting requires a governance smart contract function and corresponding FastAPI endpoint. Wire the <code style="font-family:'IBM Plex Mono',monospace;">assignRole</code> contract call to an API route to enable this.</p>
-              </div>
+              <p style="font-size:0.82rem;color:var(--muted);margin-bottom:1.5rem;">
+                Cast your vote on active network proposals. Proposals require >3 votes to execute.
+              </p>
+              
+              <div id="vt-active-list" style="display: flex; flex-direction: column; gap: 10px;"></div>
+              
+              <pre class="api-resp" id="vt-resp" style="margin-top: 1rem;"></pre>
             </div>
           </div>
         </div>
@@ -874,19 +881,56 @@
         </div>
       </div>
 
-      <div id="auth-member" class="vpanel">
+<div id="auth-member" class="vpanel">
         <h3 style="margin-bottom: 1rem; font-family: 'Playfair Display', serif;">Enterprise Access</h3>
-        <select id="cm-role" style="width: 100%; padding: 10px; border-radius: 8px; margin-bottom: 10px; background: var(--input-bg); border: 1px solid var(--border); color: var(--text);">
-          <option value="">Select your role…</option>
-          <option value="MANUFACTURER">Manufacturer</option>
-          <option value="DISTRIBUTOR">Distributor</option>
-          <option value="PHARMACY">Pharmacy</option>
-          <option value="VALIDATOR">Government / Validator</option>
-        </select>
-        <input type="text" id="cm-user" placeholder="Username (e.g. mfg_admin)" style="width: 100%; padding: 10px; border-radius: 8px; margin-bottom: 10px; background: var(--input-bg); border: 1px solid var(--border); color: var(--text);" />
         
-        <input type="password" id="cm-pass" placeholder="Password" style="width: 100%; padding: 10px; border-radius: 8px; margin-bottom: 1rem; background: var(--input-bg); border: 1px solid var(--border); color: var(--text);" onkeydown="if(event.key==='Enter')handleMemberLogin()" />
-        <button class="btn btn-warn" style="width: 100%; justify-content: center; background: var(--warn); color: #000;" onclick="handleMemberLogin()">Secure Login</button>
+        <div id="cm-login-box">
+          <select id="cm-role" style="width: 100%; padding: 10px; border-radius: 8px; margin-bottom: 10px; background: var(--input-bg); border: 1px solid var(--border); color: var(--text);">
+            <option value="">Select your role…</option>
+            <option value="MANUFACTURER">Manufacturer</option>
+            <option value="DISTRIBUTOR">Distributor</option>
+            <option value="PHARMACY">Pharmacy</option>
+            <option value="VALIDATOR">Government / Validator</option>
+          </select>
+          <input type="text" id="cm-user" placeholder="Username (e.g. mfg_admin)" style="width: 100%; padding: 10px; border-radius: 8px; margin-bottom: 10px; background: var(--input-bg); border: 1px solid var(--border); color: var(--text);" />
+          <input type="password" id="cm-pass" placeholder="Password" style="width: 100%; padding: 10px; border-radius: 8px; margin-bottom: 1rem; background: var(--input-bg); border: 1px solid var(--border); color: var(--text);" onkeydown="if(event.key==='Enter')handleMemberLogin()" />
+          
+          <button class="btn btn-warn" style="width: 100%; justify-content: center; background: var(--warn); color: #000;" onclick="handleMemberLogin()">Secure Login</button>
+          
+          <div style="text-align: center; margin-top: 15px;">
+            <span style="font-size: 0.8rem; color: var(--muted);">Don't have an account?</span><br>
+            <button class="btn" style="background: transparent; border: 1px solid var(--accent); color: var(--accent); margin-top: 8px; width: 100%;" onclick="toggleEnterpriseAuth('register')">
+              Apply for Network Access
+            </button>
+          </div>
+        </div>
+
+        <div id="cm-register-box" style="display: none;">
+          <select id="reg-role" style="width: 100%; padding: 10px; border-radius: 8px; margin-bottom: 10px; background: var(--input-bg); border: 1px solid var(--border); color: var(--text);">
+            <option value="">Requested Role…</option>
+            <option value="MANUFACTURER">Manufacturer</option>
+            <option value="DISTRIBUTOR">Distributor</option>
+            <option value="PHARMACY">Pharmacy</option>
+            <option value="VALIDATOR">Government / Validator</option>
+          </select>
+          <input type="text" id="reg-company" placeholder="Official Company Name" style="width: 100%; padding: 10px; border-radius: 8px; margin-bottom: 10px; background: var(--input-bg); border: 1px solid var(--border); color: var(--text);" />
+          <input type="email" id="reg-email" placeholder="Corporate Email" style="width: 100%; padding: 10px; border-radius: 8px; margin-bottom: 10px; background: var(--input-bg); border: 1px solid var(--border); color: var(--text);" />
+          <input type="text" id="reg-wallet" placeholder="Polygon Wallet Address (0x...)" style="width: 100%; padding: 10px; border-radius: 8px; margin-bottom: 10px; background: var(--input-bg); border: 1px solid var(--border); color: var(--text);" />
+          
+          <div style="display: flex; gap: 10px; margin-bottom: 1rem;">
+            <input type="text" id="reg-user" placeholder="Username" style="width: 50%; padding: 10px; border-radius: 8px; background: var(--input-bg); border: 1px solid var(--border); color: var(--text);" />
+            <input type="password" id="reg-pass" placeholder="Password" style="width: 50%; padding: 10px; border-radius: 8px; background: var(--input-bg); border: 1px solid var(--border); color: var(--text);" />
+          </div>
+          <input type="password" id="reg-pk" placeholder="Wallet Private Key (0x...)" style="width: 100%; padding: 10px; border-radius: 8px; margin-bottom: 10px; background: var(--input-bg); border: 1px solid var(--border); color: var(--text);" />
+
+          <button class="btn btn-warn" style="width: 100%; justify-content: center; background: var(--accent); color: #fff;" onclick="submitApplication()">Submit Application</button>
+          
+          <div style="text-align: center; margin-top: 15px;">
+            <button class="btn" style="background: transparent; border: none; color: var(--muted); width: 100%; text-decoration: underline; font-size: 0.85rem;" onclick="toggleEnterpriseAuth('login')">
+              ← Back to Login
+            </button>
+          </div>
+        </div>
       </div>
 
       <div style="text-align: right; margin-top: 15px;">

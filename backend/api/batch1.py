@@ -2,12 +2,13 @@ import json
 import base64
 from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, EmailStr
 from sqlalchemy.orm import Session
 from typing import Optional
 from datetime import datetime, timezone, date
 from auth.auth_models import User
-from auth.auth_database import local_session
+from auth.auth_database import local_session, get_db as get_auth_db
+from auth.schemas import NewUser
 
 from services.blockchain_service import blockchain
 from services.qr import generate_batch_qr, generate_drug_qr
@@ -16,6 +17,22 @@ from models.batch_model import DrugBatch, DrugItem, BatchStatus
 from services.hash import generate_secure_hash
 from services.ipfs import upload_image_to_ipfs
 from auth.dependencies import get_authed_user, get_current_user
+from auth.auth_utils import hashpass,verifypass
+
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+adm_pk = os.getenv("ADMIN_PRIVATE_KEY")
+val2_pk = os.getenv("VAL2_PRIVATE_KEY")
+val3_pk = os.getenv("VAL3_PRIVATE_KEY")
+val4_pk = os.getenv("VAL4_PRIVATE_KEY")
+
+admin_wa = os.getenv("AD_WA")
+admin2_wa = os.getenv("V2_WA")
+admin3_wa = os.getenv("V3_WA")
+admin4_wa = os.getenv("V4_WA")
 
 router = APIRouter()
 
@@ -31,6 +48,7 @@ class CreateBatchT1(BaseModel):
     mfd: date
     exp: date
     batch_quantity: int
+    private_key: str
     image: str   
 
     @field_validator("batch_quantity")
@@ -81,6 +99,9 @@ class AssignRolePayload(BaseModel):
     target_username: str
     role_index: int   
 
+class VotePayload(BaseModel):
+    proposal_id : int
+
 
 def _get_wallet_address(username: str, auth_db) -> str:
     user = auth_db.query(User).filter(User.username == username).first()
@@ -91,7 +112,7 @@ def _get_wallet_address(username: str, auth_db) -> str:
 
 
 @router.post("/create-drugs-t1", status_code=201)
-async def create_batch_t1(payload:CreateBatchT1,auth = Depends(get_authed_user("MANUFACTURER")),db: Session = Depends(get_db),):
+async def create_batch_t1(payload:CreateBatchT1,auth = Depends(get_authed_user("MANUFACTURER")),db: Session = Depends(get_db)):
     user, current_user = auth
 
     if db.query(DrugBatch).filter(DrugBatch.batch_id == payload.batch_id).first():
@@ -100,7 +121,6 @@ async def create_batch_t1(payload:CreateBatchT1,auth = Depends(get_authed_user("
     try:
         timestamp  = datetime.now(timezone.utc).replace(microsecond=0)
 
-   
         image_data = base64.b64decode(payload.image)
         with open("temp_image.png", "wb") as f:
             f.write(image_data)
@@ -117,7 +137,7 @@ async def create_batch_t1(payload:CreateBatchT1,auth = Depends(get_authed_user("
 
         receipt = blockchain.create_batch(
             payload.batch_id, unique_hash, payload.batch_quantity,
-            private_key=user.private_key
+            private_key= user.private_key
         )
 
         new_batch = DrugBatch(
@@ -236,7 +256,7 @@ async def ship_to_distributor(payload:ShipToDist,auth = Depends(get_authed_user(
         try:
             distributor_address = _get_wallet_address(payload.recipient_username, auth_db)
             recipient = auth_db.query(User).filter(User.username == payload.recipient_username).first()
-            if recipient.role != "DISTRIBUTOR":
+            if recipient.requested_role != "DISTRIBUTOR":
                 raise HTTPException(status_code=400, detail=f"'{payload.recipient_username}' is not registered as a DISTRIBUTOR")
         finally:
             auth_db.close()
@@ -313,7 +333,7 @@ async def ship_to_pharmacy(payload: ShipToPharma,auth = Depends(get_authed_user(
         try:
             pharmacy_address = _get_wallet_address(payload.recipient_username, auth_db)
             recipient = auth_db.query(User).filter(User.username == payload.recipient_username).first()
-            if recipient.role != "PHARMACY":
+            if recipient.requested_role != "PHARMACY":
                 raise HTTPException(status_code=400, detail=f"'{payload.recipient_username}' is not registered as a PHARMACY")
         finally:
             auth_db.close()
@@ -403,38 +423,6 @@ async def sell_drug(payload:  SellDrug,auth = Depends(get_authed_user("PHARMACY"
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Sale failed: {e}")
-
-@router.post("/assign-role")
-async def assign_role(payload: AssignRolePayload,auth= Depends(get_authed_user("VALIDATOR")),):
-    user, current_user = auth
-
-    if payload.role_index not in ROLE_MAP or payload.role_index == 0:
-        raise HTTPException(status_code=400, detail="role_index must be 1 - 4")
-
-    try:
-        auth_db = local_session()
-        try:
-            target_address = _get_wallet_address(payload.target_username, auth_db)
-        finally:
-            auth_db.close()
-
-        receipt = blockchain.assign_role(
-            target_address, payload.role_index, private_key=user.private_key
-        )
-
-        return {
-            "status": "success",
-            "assigned_to":  payload.target_username,
-            "role":ROLE_MAP[payload.role_index],
-            "by_validator": current_user["username"],
-            "transaction":  receipt.transactionHash.hex(),
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Role assignment failed: {e}")
-
 
 @router.get("/batch-det/{batch_id}")
 def get_batch_details(batch_id:str,current_user: dict = Depends(get_current_user),db: Session  = Depends(get_db),):
@@ -587,7 +575,7 @@ async def check_role(address:str,current_user: dict = Depends(get_current_user),
     
 
 @router.get("/qr/{identifier}", tags=["Utilities"])
-def get_qr_code(identifier: str):
+async def get_qr_code(identifier: str):
     try:
         if "-D" in identifier:
             qr_buffer = generate_drug_qr(identifier)
@@ -598,3 +586,182 @@ def get_qr_code(identifier: str):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate QR: {e}")
+    
+
+@router.post("/request_access")
+async def new_chain_member(payload: NewUser, db : Session = Depends(get_auth_db)):
+    exists = db.query(User).filter(payload.username == User.username).first()
+
+    if exists:
+        raise HTTPException(status_code=500, detail="Username already exists")
+
+    hashed_pass = hashpass(payload.password)
+
+    new_chain_user = User(
+        username = payload.username,
+        email = payload.email,
+        hashed_password = hashed_pass,
+        requested_role = payload.req_role,
+        company_name = payload.company_name,
+        wallet_address = payload.acc_address,
+        private_key = payload.private_key
+    )
+
+    db.add(new_chain_user)
+    db.commit()
+
+    return{
+        "status" : f"Your application has been submitted and waiting approval",
+        "username" : new_chain_user.username,
+        "requested_role" : new_chain_user.requested_role
+    }
+
+@router.get("/pending_requests")
+async def pending_requests(auth = Depends(get_authed_user("VALIDATOR")), db : Session = Depends(get_auth_db)):
+    user,current_user = auth
+
+    pending = []
+
+    count = blockchain.get_proposal_count()
+    already_proposed_comp = []
+    for i in range(1, count + 1):
+        prop = blockchain.get_proposal(i)
+        if not prop["is_executed"]:
+            already_proposed_comp.append(prop["target_address"])
+
+    pending_users = db.query(User).filter(User.is_approved==False).all()
+
+    for pu in pending_users:
+        if pu.wallet_address not in already_proposed_comp:
+            pending.append({
+                "user_id" : pu.id,
+                "username" : pu.username,
+                "company_name" : pu.company_name,
+                "role_requested" : pu.requested_role,
+                "wallet_address" : pu.wallet_address
+            })
+
+    return {
+        "pending_users" : pending
+    }
+
+@router.post("/propose_company")
+async def propose_comp_to_vote(payload : AssignRolePayload , auth = Depends(get_authed_user("VALIDATOR")), db : Session = Depends(get_auth_db)):
+    user,current_user = auth
+
+    still_pending = db.query(User).filter(User.username == payload.target_username).filter(User.is_approved==False).first()
+
+    if not still_pending:
+        raise HTTPException(status_code=404,detail="user is alredy approved")
+    
+    count = blockchain.get_proposal_count()
+    for i in range(1, count + 1):
+        prop = blockchain.get_proposal(i)
+        if not prop["is_executed"] and prop["target_address"] == still_pending.wallet_address:
+            raise HTTPException(status_code=400, detail="This company is already being voted on!")
+    
+    blockchain.propose_company(still_pending.wallet_address,payload.role_index)
+
+    return {
+        "status" : f"company has been proposed to voting {still_pending.company_name} -- {still_pending.requested_role}"
+    }
+
+@router.get("/active_proposals")
+async def get_active_proposals(auth = Depends(get_authed_user("VALIDATOR")), db: Session = Depends(get_auth_db)):
+    user, current_user = auth
+    
+    try:
+        count = blockchain.get_proposal_count()
+        active_list = []
+        for i in range(1, count + 1):
+            prop = blockchain.get_proposal(i)
+            
+            if not prop["is_executed"]:
+                db_user = db.query(User).filter(User.wallet_address == prop["target_address"]).first()
+                prop["company_name"] = db_user.company_name if db_user else "Unknown Company"
+                
+                active_list.append(prop)
+
+        return {"active_proposals": active_list}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch proposals: {e}")
+
+GANACHE_VAULT = {
+    admin_wa: adm_pk,
+    admin2_wa : val2_pk,
+    admin3_wa : val3_pk,
+    admin4_wa : val4_pk,
+}
+
+@router.post("/vote")
+async def execute_vote(payload: VotePayload, auth = Depends(get_authed_user("VALIDATOR")), db: Session = Depends(get_auth_db)):
+    user, current_user = auth
+
+    try:
+        if hasattr(user, 'wallet_address'):
+            wallet = user.wallet_address
+        else:
+            db_user = db.query(User).filter(User.username == user).first()
+            wallet = db_user.wallet_address
+            
+        voter_pk = GANACHE_VAULT.get(wallet)
+        
+        if not voter_pk:
+            raise HTTPException(status_code=400, detail=f"Private key for {wallet} not found in the Ganache Vault!") 
+        receipt = blockchain.vote_on_proposal(payload.proposal_id, private_key=voter_pk)
+
+        message = f"Your vote for Proposal #{payload.proposal_id} has been cast on-chain!"
+        prop = blockchain.get_proposal(payload.proposal_id)
+        
+        if prop.get("is_executed"):
+            target_wallet = prop.get("target_address")
+            approved_user = db.query(User).filter(User.wallet_address == target_wallet).first()
+            
+            if approved_user and not approved_user.is_approved:
+                approved_user.is_approved = True
+                db.commit() 
+                message += f" The DAO threshold was reached! {approved_user.company_name} is officially approved."
+
+        return {
+            "status": "success",
+            "message": message,
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Voting transaction failed: {e}")
+    
+
+@router.post("/run_genesis_setup")
+async def run_genesis_setup(db: Session = Depends(get_auth_db)):
+    pending_vals = db.query(User).filter(User.requested_role == "VALIDATOR", User.is_approved == False).all()
+    
+    if not pending_vals:
+        return {"error": "No pending validators found in the waiting room!"}
+
+    added = []
+    for v in pending_vals:
+        blockchain.add_genesis_validator(v.wallet_address)
+        
+        v.is_approved = True
+        added.append(v.username)
+        
+    db.commit()
+    return {
+        "status": "Genesis Phase Complete! The DAO backdoor is now permanently locked.", 
+        "added_validators": added
+    }
+
+@router.post("/clear_proposals")
+async def wipe_proposals_clean(auth = Depends(get_authed_user("VALIDATOR"))):
+    user, current_user = auth
+    
+    try:
+        blockchain.clear_all_proposals()
+        
+        return {
+            "status": "success", 
+            "message": "Nuclear option engaged. All proposals have been cleared from the board!"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to clear proposals: {e}")

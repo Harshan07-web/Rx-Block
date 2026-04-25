@@ -53,6 +53,7 @@ contract DrugSupply {
     // Governance
     mapping(address => bool) public isValidator;
     address public owner;
+    uint256 public validatorCount = 1;
 
     // -----------------------------
     // EVENTS
@@ -251,6 +252,21 @@ contract DrugSupply {
     // 5. DECENTRALIZED GOVERNANCE (PROPOSE & VOTE)
     // =============================================================
 
+    /**
+     * @dev BOOTSTRAP FUNCTION: Allows the deployer to add the founding 
+     * Validators. This function completely disables itself permanently 
+     * once 4 Validators exist, handing full control to the DAO!
+     */
+    function addGenesisValidator(address _account) external {
+        require(msg.sender == owner, "Only the original deployer can add founding members");
+        require(validatorCount < 4, "Genesis phase is over! The DAO is now fully decentralized.");
+        require(roles[_account] == Role.NONE, "Account already has a role");
+
+        roles[_account] = Role.VALIDATOR;
+        isValidator[_account] = true;
+        validatorCount++;
+    }
+
     struct Proposal {
         uint256 id;
         address targetAccount;
@@ -259,7 +275,21 @@ contract DrugSupply {
         bool executed;
     }
 
-    uint256 public proposalCount;
+    /**
+     * @dev EMERGENCY DEBUG: "Deletes" all proposals by marking them executed.
+     * Only the original deployer (Admin) can call this.
+     */
+    function clearAllProposals() external {
+        require(msg.sender == owner, "Only the admin can clear the board");
+        
+        for (uint256 i = 1; i <= proposalCount; i++) {
+            // By marking it executed, it permanently hides it from the Python UI
+            // without resetting the ID counter and causing hasVoted collisions!
+            proposals[i].executed = true; 
+        }
+    }
+
+    uint256 public proposalCount = 0;
     mapping(uint256 => Proposal) public proposals;
     
     // Tracks if a specific validator has already voted on a specific proposal

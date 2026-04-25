@@ -84,6 +84,11 @@ function switchPage(p) {
 function showPanel(id, btn) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.sb-item').forEach(b => b.classList.remove('active'));
+  
+  // 🚀 THE FIX: Use the 'id' variable that was passed into the function!
+  if (id === 'propose') loadPendingRequests();
+  if (id === 'vote') loadActiveProposals();
+  
   document.getElementById('panel-' + id)?.classList.add('active');
   btn?.classList.add('active');
 }
@@ -162,17 +167,78 @@ async function handleMemberLogin() {
   await performLogin(username, password, role);
 }
 
+/* ── Chain member registration (DAO Waiting Room) ── */
+/* ── UI Toggle for Enterprise Auth ── */
+function toggleEnterpriseAuth(mode) {
+  document.getElementById('cm-login-box').style.display = mode === 'login' ? 'block' : 'none';
+  document.getElementById('cm-register-box').style.display = mode === 'register' ? 'block' : 'none';
+}
+
+/* ── Chain member registration (DAO Waiting Room) ── */
+async function submitApplication() {
+  const role    = document.getElementById('reg-role').value;
+  const company = document.getElementById('reg-company').value.trim();
+  const email   = document.getElementById('reg-email').value.trim();
+  const wallet  = document.getElementById('reg-wallet').value.trim();
+  const username= document.getElementById('reg-user').value.trim();
+  const password= document.getElementById('reg-pass').value.trim();
+  const pk = document.getElementById('reg-pk').value.trim();
+
+  if (!role || !company || !email || !wallet || !username || !password) {
+    return toast('All 6 fields are required to apply.', 'er');
+  }
+
+  try {
+    // 🚀 Hits your FastAPI Waiting Room endpoint
+    // NOTE: Make sure the prefix here matches your docs! (e.g., /batch/request_access)
+    const res = await fetch(`${API()}/batch/request_access`, {
+      method: 'POST', 
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        username: username, 
+        password: password,
+        email: email,
+        req_role: role,
+        company_name: company,
+        acc_address: wallet,
+        private_key: pk
+      }),
+    });
+    
+    const data = await res.json();
+    if (!res.ok) throw new Error(extractDetail(data));
+    
+    toast('Application submitted! Please wait for DAO Validator approval.', 'ok');
+    
+    // Switch the UI back to login mode & close the modal
+    toggleEnterpriseAuth('login');
+    document.getElementById('auth-modal').classList.remove('show');
+    
+  } catch (e) { 
+    toast(e.message, 'er'); 
+  }
+}
+
 async function performLogin(username, password, expectedRole = null) {
   try {
-    const res = await fetch(`${API()}/auth/login`, {
-      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    // 🚀 THE FIX: Choose the correct endpoint based on the role
+    const isPatient = !expectedRole || expectedRole === 'PATIENT';
+    const loginEndpoint = isPatient ? '/auth/patient/login' : '/auth/member/login';
+
+    const res = await fetch(`${API()}${loginEndpoint}`, {
+      method: 'POST', 
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ username, password }),
     });
-    if (!res.ok) { const d = await res.json(); throw new Error(extractDetail(d)); }
+    
+    if (!res.ok) { 
+      const d = await res.json(); 
+      throw new Error(extractDetail(d)); 
+    }
     const data = await res.json();
 
     if (expectedRole && expectedRole !== 'PATIENT' && data.role !== expectedRole)
-      throw new Error(`Role mismatch: you selected ${expectedRole} but your account is ${data.role}.`);
+      throw new Error(`Role mismatch: you selected ${expectedRole} but the blockchain says you are ${data.role}.`);
 
     authToken = data.access_token;
     localStorage.setItem('rx_token', authToken);
@@ -182,7 +248,9 @@ async function performLogin(username, password, expectedRole = null) {
     document.getElementById('auth-modal').classList.remove('show');
     toast('Login successful');
     executeLogin(data.role, data.username);
-  } catch (err) { toast(err.message, 'er'); }
+  } catch (err) { 
+    toast(err.message, 'er'); 
+  }
 }
 
 function executeLogin(role, username) {
@@ -577,21 +645,45 @@ function withLoading(btnId, label, fn) {
 /* Admin calls — all use apiFetch (JWT injected automatically) */
 
 async function createBatch() {
-  const batchId=document.getElementById('cb-batch-id')?.value.trim(), drugName=document.getElementById('cb-drug-name')?.value.trim(),
-        manuName=document.getElementById('cb-manu-name')?.value.trim(), mfd=document.getElementById('cb-mfd')?.value,
-        exp=document.getElementById('cb-exp')?.value, qty=parseInt(document.getElementById('cb-qty')?.value),
-        imgFile=document.getElementById('cb-img')?.files[0];
+  // 🚀 FIX 1: Cleaned up the declarations so the JavaScript parser doesn't crash
+  const batchId  = document.getElementById('cb-batch-id')?.value.trim();
+  const drugName = document.getElementById('cb-drug-name')?.value.trim();
+  const manuName = document.getElementById('cb-manu-name')?.value.trim();
+  const mfd      = document.getElementById('cb-mfd')?.value;
+  const exp      = document.getElementById('cb-exp')?.value;
+  const qty      = parseInt(document.getElementById('cb-qty')?.value);
+  const pk       = document.getElementById('mfg-pk')?.value.trim();
+  const imgFile  = document.getElementById('cb-img')?.files[0];
         
-  if(!batchId||!drugName||!manuName||!mfd||!exp||!qty) return toast('All fields required.','er');
-  if(!imgFile) return toast('Select a license image.','er');
-  if(new Date(exp)<=new Date(mfd)) return toast('Expiry must be after manufacturing date.','er');
+  // 🚀 FIX 2: Added !pk to the validation check so the UI catches it if it's empty
+  if(!batchId || !drugName || !manuName || !mfd || !exp || !qty || !pk) {
+    return toast('All fields (including Private Key) are required.','er');
+  }
   
-  withLoading('cb-submit-btn','Create & Generate QR', async()=>{
+  if(!imgFile) return toast('Select a license image.','er');
+  if(new Date(exp) <= new Date(mfd)) return toast('Expiry must be after manufacturing date.','er');
+  
+  withLoading('cb-submit-btn','Create & Generate QR', async() => {
     try {
-      const base64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(imgFile);});
-      const fetchRes=await apiFetch('/batch/create-drugs-t1',{
+      const base64 = await new Promise((res,rej) => {
+        const r = new FileReader();
+        r.onload = e => res(e.target.result.split(',')[1]);
+        r.onerror = rej;
+        r.readAsDataURL(imgFile);
+      });
+      
+      const fetchRes = await apiFetch('/batch/create-drugs-t1', {
         method:'POST',
-        body:JSON.stringify({batch_id:batchId,drug_name:drugName,manufacturer_name:manuName,mfd,exp,batch_quantity:qty,image:base64})
+        body: JSON.stringify({
+          batch_id: batchId,
+          drug_name: drugName,
+          manufacturer_name: manuName,
+          mfd: mfd,
+          exp: exp,
+          batch_quantity: qty,
+          private_key: pk, // This will now successfully send to Python!
+          image: base64
+        })
       });
       
       // 1. Read the new JSON response!
@@ -841,6 +933,139 @@ function handleQRUpload(event) {
     });
 }
 
+/* ════════════════════════════════════════════════════════
+   GOVERNANCE: PANEL 9 (PENDING PROPOSALS)
+   ════════════════════════════════════════════════════════ */
+
+async function loadPendingRequests() {
+  const listDiv = document.getElementById('pr-pending-list');
+  if (!listDiv) return;
+  listDiv.innerHTML = '<span style="font-size:0.85rem; color:var(--muted);">Fetching pending applications...</span>';
+
+  try {
+    const res = await fetch(`${API()}/batch/pending_requests`, {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('rx_token')}` }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Failed to load');
+
+    const users = data.pending_users || [];
+    if (users.length === 0) {
+      listDiv.innerHTML = '<div style="padding: 1rem; background: var(--bg); border-radius: 6px; text-align: center; font-size: 0.85rem; color: var(--muted);">No pending applications right now.</div>';
+      return;
+    }
+
+    // Map string roles to the Integer your Smart Contract expects
+    const roleToIndex = { "MANUFACTURER": 1, "DISTRIBUTOR": 2, "PHARMACY": 3 };
+
+    listDiv.innerHTML = users.map(u => `
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px;">
+        <div>
+          <div style="font-weight: 600; font-size: 0.9rem; color: var(--text);">${u.company_name} <span style="font-size: 0.75rem; color: var(--muted);">(@${u.username})</span></div>
+          <div style="font-size: 0.75rem; color: var(--muted); margin-top: 4px;">Wallet: <span style="font-family: monospace;">${u.wallet_address.substring(0,6)}...${u.wallet_address.substring(u.wallet_address.length-4)}</span></div>
+          <div style="font-size: 0.75rem; margin-top: 2px;">Requested Role: <b style="color: var(--accent);">${u.role_requested}</b></div>
+        </div>
+        <button class="btn" style="background: var(--accent); color: white; padding: 6px 12px; font-size: 0.8rem;" 
+                onclick="proposeCompany('${u.username}', ${roleToIndex[u.role_requested] || 0})">
+          Propose To Chain
+        </button>
+      </div>
+    `).join('');
+  } catch (err) {
+    listDiv.innerHTML = `<span style="color:var(--danger); font-size:0.8rem;">Error: ${err.message}</span>`;
+  }
+}
+
+async function proposeCompany(targetUsername, roleIndex) {
+  if (!confirm(`Propose @${targetUsername} to the DAO?`)) return;
+
+  try {
+    const res = await fetch(`${API()}/batch/propose_company`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('rx_token')}`
+      },
+      body: JSON.stringify({ target_username: targetUsername, role_index: roleIndex })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Proposal failed');
+
+    showR('pr-resp', data);
+    toast(`Successfully proposed @${targetUsername}!`);
+    loadPendingRequests(); // Instantly refresh the table
+  } catch (err) {
+    showR('pr-resp', { error: err.message }, true);
+    toast(err.message, 'er');
+  }
+}
+
+/* ════════════════════════════════════════════════════════
+   GOVERNANCE: PANEL 10 (DAO VOTING)
+   ════════════════════════════════════════════════════════ */
+
+async function loadActiveProposals() {
+  const listDiv = document.getElementById('vt-active-list');
+  if (!listDiv) return;
+  listDiv.innerHTML = '<span style="font-size:0.85rem; color:var(--muted);">Fetching active proposals from blockchain...</span>';
+
+  try {
+    const res = await fetch(`${API()}/batch/active_proposals`, {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('rx_token')}` }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Failed to load');
+
+    const props = data.active_proposals || [];
+    if (props.length === 0) {
+      listDiv.innerHTML = '<div style="padding: 1rem; background: var(--bg); border-radius: 6px; text-align: center; font-size: 0.85rem; color: var(--muted);">No active proposals to vote on.</div>';
+      return;
+    }
+
+    listDiv.innerHTML = props.map(p => `
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--bg); border: 1px solid var(--warn-bd); border-radius: 6px;">
+        <div>
+          <div style="font-weight: 600; font-size: 0.9rem; color: var(--text);">Proposal #${p.proposal_id}: ${p.company_name}</div>
+          <div style="font-size: 0.75rem; color: var(--muted); margin-top: 4px;">Role: <b style="color: var(--accent);">${p.role_requested}</b></div>
+          <div style="font-size: 0.75rem; margin-top: 2px;">Votes: <b style="font-size: 0.9rem; color: var(--warn);">${p.vote_count} / 4</b></div>
+        </div>
+        <button class="btn" style="background: var(--warn); color: var(--bg-card); padding: 6px 12px; font-size: 0.8rem;" 
+                onclick="castVote(${p.proposal_id})">
+          Cast Vote
+        </button>
+      </div>
+    `).join('');
+  } catch (err) {
+    listDiv.innerHTML = `<span style="color:var(--danger); font-size:0.8rem;">Error: ${err.message}</span>`;
+  }
+}
+
+async function castVote(proposalId) {
+  if (!confirm(`Cast your cryptographic vote for Proposal #${proposalId}?`)) return;
+
+  try {
+    const res = await fetch(`${API()}/batch/vote`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('rx_token')}`
+      },
+      body: JSON.stringify({ proposal_id: proposalId })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Voting failed');
+
+    showR('vt-resp', data);
+    toast(`Vote cast successfully!`);
+    loadActiveProposals(); // Instantly refresh the table
+  } catch (err) {
+    showR('vt-resp', { error: err.message }, true);
+    toast(err.message, 'er');
+  }
+}
+
+
+
 /* ── THE TRAFFIC COP (ROUTING LOGIC) ──────────────────── */
 function processScannedQR(decodedText) {
   try {
@@ -903,6 +1128,8 @@ function processScannedQR(decodedText) {
     toast("Could not read Rx-Block data from this QR", "er");
   }
 }
+
+
 
 
 /* ── Init ── */
