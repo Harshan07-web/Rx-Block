@@ -22,7 +22,7 @@ jobs:
         run: pip install requests
 
       - name: Generate contributors file
-        run: python backend/scripts/generate_contributors.py
+        run: python scripts/generate_contributors.py
 
       - name: Commit changes
         run: |
