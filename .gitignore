@@ -11,3 +11,4 @@ __pycache__/
 *.pyc
 ntest.py
 key.py
+config.js

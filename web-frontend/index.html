@@ -127,6 +127,7 @@
     .placeholder-panel .ph-icon { font-size: 3rem; margin-bottom: 1rem; }
     .placeholder-panel h3 { font-family: 'Playfair Display', serif; margin-bottom: 0.5rem; color: var(--text2); }
     .placeholder-panel p { font-size: 0.85rem; line-height: 1.7; }
+
   </style>
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 </head>
@@ -190,22 +191,18 @@
       <div class="hero-badge">Welcome to Rx-Block</div>
       <h1 class="hero-title">Transparent. Secure.<br /><em>Immutable Healthcare.</em></h1>
       <p class="hero-sub">Our Enterprise Blockchain ensures every medication is tracked from the factory floor to the patient's hands, eliminating counterfeits and guaranteeing safety.</p>
-      
-      <div style="display: flex; gap: 15px; justify-content: center; margin-bottom: 4rem;">
-        
-      <div id="hero-login-buttons" style="display: flex; gap: 15px; justify-content: center; margin-bottom: 4rem;">
-        
-        <button class="btn btn-p" style="padding: 14px 28px; font-size: 1rem;" onclick="openSpecificLogin('patient')">
-          Public / Patient Login
-        </button>
-        
-        <button class="btn btn-g" style="padding: 14px 28px; font-size: 1rem;" onclick="openSpecificLogin('member')">
-          Enterprise Login
-        </button>
+             
+        <div id="hero-login-buttons" style="display: flex; gap: 15px; justify-content: center; margin-bottom: 4rem;">
+          
+          <button class="btn btn-p" style="padding: 14px 28px; font-size: 1rem;" onclick="openSpecificLogin('patient')">
+            Public / Patient Login
+          </button>
+          
+          <button class="btn btn-g" style="padding: 14px 28px; font-size: 1rem;" onclick="openSpecificLogin('member')">
+            Enterprise Login
+          </button>
 
-      </div>
-
-      </div>
+        </div>
 
       <div class="sec-lbl" style="text-align: center; margin-bottom: 2rem;">How It Works</div>
       <div class="tl" style="max-width: 700px; margin: 0 auto;">
@@ -219,7 +216,7 @@
   <!-- ═══════════════════════════════════════════════════════
        PUBLIC VERIFY PAGE
        ═══════════════════════════════════════════════════════ -->
-  <div id="page-public" class="page">
+<div id="page-public" class="page">
     <div class="page-public-inner" id="public-inner">
 
       <div class="hero">
@@ -331,23 +328,58 @@
                 </div>
               </div>
 
-              <div class="split-right" style="background: var(--surface2); padding: 1.25rem; border-radius: 12px; border: 1px solid var(--border); display: flex; flex-direction: column;">
-                <div style="margin-bottom: 1.5rem;" id="res-info">
-                  <div class="clbl">Side Effects</div>
-                  <div class="tag-list" id="res-se" style="margin-bottom: 1rem;"></div>
-                  <div class="clbl">Allergy Warnings</div>
-                  <div class="tag-list" id="res-al"></div>
+              <div class="split-right" style="display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 12px; background: var(--surface2); overflow: hidden;">
+                
+                <div class="rtabs">
+                  <button type="button" class="rtab active" id="tab-medinfo" onclick="switchResultTab('medinfo')">MED INFO</button>
+                  <button type="button" class="rtab" id="tab-advisor" onclick="switchResultTab('advisor')">AI ADVISOR</button>
                 </div>
-                <div style="margin-top: auto;">
-                  <div class="clbl">Regulatory</div>
-                  <button class="btn btn-g btn-sm" style="width: 100%; margin-top: 5px; justify-content: center; background: var(--surface); margin-bottom: 1rem;" onclick="alert('Demo: Opening IPFS License Document...')">
-                    📄 View Mfg License
-                  </button>
-                  <div class="clbl" style="color: var(--accent);">Medication Tools</div>
-                  <button class="btn btn-p btn-sm" style="width: 100%; margin-top: 5px; justify-content: center; background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent-bd);" onclick="setupReminders()">
-                    🔔 Setup Smart Reminders
-                  </button>
+
+                <div class="rpanel active" id="tabpanel-medinfo">
+                  <div style="margin-bottom: 1.5rem;" id="res-info">
+                    <div class="clbl">Side Effects</div>
+                    <div class="tag-list" id="res-se" style="margin-bottom: 1rem;"></div>
+                    <div class="clbl">Allergy Warnings</div>
+                    <div class="tag-list" id="res-al"></div>
+                  </div>
+                  <div style="margin-top: auto;">
+                    <div class="clbl">Regulatory</div>
+                    <button class="btn btn-g btn-sm" style="width: 100%; margin-top: 5px; justify-content: center; background: var(--surface); margin-bottom: 1rem;" onclick="alert('Demo: Opening IPFS License Document...')">
+                      📄 View Mfg License
+                    </button>
+                    <div class="clbl" style="color: var(--accent);">Medication Tools</div>
+                    <button class="btn btn-p btn-sm" style="width: 100%; margin-top: 5px; justify-content: center; background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent-bd);" onclick="setupReminders()">
+                      🔔 Setup Smart Reminders
+                    </button>
+                  </div>
                 </div>
+
+                <div class="rpanel" id="tabpanel-advisor">
+                  <div class="advisor-box">
+                    
+                    <div class="advisor-header">
+                      <span style="font-weight: 700; color: var(--accent);">GEMINI SAFETY ADVISOR</span>
+                      <span id="gemini-key-badge" style="cursor: pointer; background: var(--surface); padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border);" onclick="_promptForKey()">🔑 Key Check</span>
+                    </div>
+                    
+                    <div class="advisor-messages" id="advisor-messages">
+                      </div>
+
+                    <div class="advisor-suggestions" id="advisor-suggestions">
+                      <button class="adv-chip" onclick="sendAdvisorMessage(this.textContent)">With metformin?</button>
+                      <button class="adv-chip" onclick="sendAdvisorMessage(this.textContent)">Safe to drive?</button>
+                      <button class="adv-chip" onclick="sendAdvisorMessage(this.textContent)">Missed dose?</button>
+                      <button class="adv-chip" onclick="sendAdvisorMessage(this.textContent)">Pregnancy safe?</button>
+                    </div>
+
+                    <div class="advisor-input-area">
+                      <input type="text" id="advisor-input" placeholder="Ask about this medicine..." onkeydown="if(event.key==='Enter') sendAdvisorMessage()" autocomplete="off" />
+                      <button id="advisor-send-btn" onclick="sendAdvisorMessage()">↑</button>
+                    </div>
+                    
+                  </div>
+                </div>
+
               </div>
             </div>
           </div>
@@ -355,7 +387,7 @@
       </div>
     </div>
   </div>
-
+  
   <!-- ═══════════════════════════════════════════════════════
        VERIFIED COMPANIES PAGE
        ═══════════════════════════════════════════════════════ -->
@@ -956,6 +988,7 @@
     </div>
   </div>
 
+  <script src="config.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

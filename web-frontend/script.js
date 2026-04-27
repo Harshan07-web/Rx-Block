@@ -3,7 +3,7 @@ let qrBatchId  = null;
 
 const API = () => {
   const el = document.getElementById('api-url');
-  return (el ? el.value : 'http://127.0.0.1:8000').replace(/\/$/, '');
+  return (el ? el.value : CONFIG.API_BASE_URL).replace(/\/$/, '');
 };
 
 let authToken       = null;
@@ -479,13 +479,64 @@ const MOCK_DB = {
   },
 };
 
+const MOCK_DRUGS = {
+  // 🟡 SCENARIO 1: Authentic, but sold a long time ago. 
+  // If a patient scans this, it triggers your "Over 24 Hours / Potential Copy" Warning
+  'TEST-001-D1': {
+    drug_id: 'TEST-001-D1',
+    batch_id: 'TEST-001',
+    is_sold: true,
+    sold_at: '2024-12-01T14:30:00' // Way more than 24 hours ago
+  },
+
+  // 🟢 SCENARIO 2: Authentic, sold JUST NOW.
+  // Triggers your yellow "Recently Dispensed - perfectly safe" info box
+  'TEST-001-D2': {
+    drug_id: 'TEST-001-D2',
+    batch_id: 'TEST-001',
+    is_sold: true,
+    // Dynamically sets the sold time to 30 minutes ago so it always passes the < 24h check
+    sold_at: new Date(Date.now() - 1000 * 60 * 30).toISOString() 
+  },
+
+  // 🟢 SCENARIO 3: Authentic and completely UNSOLD.
+  // Standard safe result.
+  'TEST-002-D1': {
+    drug_id: 'TEST-002-D1',
+    batch_id: 'TEST-002',
+    is_sold: false,
+    sold_at: null
+  },
+
+  // 🟢 SCENARIO 4: Authentic and UNSOLD.
+  'TEST-DOLO-D5': {
+    drug_id: 'TEST-DOLO-D5',
+    batch_id: 'TEST-DOLO',
+    is_sold: false,
+    sold_at: null
+  },
+
+  // 🔴 SCENARIO 5: Completely fake drug.
+  // Triggers your red "🚨 Invalid Blockchain Seal / Bounty" alert
+  'TEST-FAKE-D99': {
+    drug_id: 'TEST-FAKE-D99',
+    batch_id: 'TEST-FAKE',
+    is_sold: false,
+    sold_at: null
+  }
+};
+
+
 async function lookupBatch() {
   let identifier = document.getElementById('pub-id').value.trim();
   if (!identifier) return toast('Please enter a Batch or Drug ID', 'er');
 
+  // 🚀 FIX 1: Force uppercase to match the MOCK objects exactly
+  identifier = identifier.toUpperCase();
+
   // Strip URLs if the user pasted/scanned the full string
-  if (identifier.includes('drug_id=')) identifier = identifier.split('drug_id=')[1].split('&')[0];
-  else if (identifier.includes('batch_id=')) identifier = identifier.split('batch_id=')[1].split('&')[0];
+  if (identifier.includes('DRUG_ID=')) identifier = identifier.split('DRUG_ID=')[1].split('&')[0];
+  else if (identifier.includes('BATCH_ID=')) identifier = identifier.split('BATCH_ID=')[1].split('&')[0];
   
   document.getElementById('pub-id').value = identifier;
   
@@ -500,8 +551,8 @@ async function lookupBatch() {
   const resultArea = document.getElementById('result-area');
   const pubLoader = document.getElementById('pub-loader');
   const resultCard = document.getElementById('result-card');
-  
-  if (resultArea) resultArea.style.display = 'block';
+
+  resultArea?.classList.add('visible');
   if (pubLoader) pubLoader.style.display = 'flex';
   if (resultCard) resultCard.style.display = 'none';
 
@@ -514,24 +565,67 @@ async function lookupBatch() {
       throw new Error("Public access is restricted to individual Drug Units only (e.g. BATCH-01-D1).");
     }
 
-    let endpoint = isDrug ? `/batch/verify_drug/${identifier}` : `/batch/verify/${identifier}`;
-    let headers = {};
-    const savedToken = localStorage.getItem('rx_token');
-    if (savedToken) headers['Authorization'] = `Bearer ${savedToken}`;
-
     // Derive the batch_id for the batch-det call (drug IDs look like BATCH-001-D12)
     const batchIdForDet = isDrug ? identifier.replace(/-D\d+$/, '') : identifier;
 
-    console.log("Fetching from API...");
-    const [fetchRes, detRes] = await Promise.all([
-      fetch(`${API()}${endpoint}`, { headers }),
-      fetch(`${API()}/batch/batch-det/${batchIdForDet}`, { headers }),
-    ]);
-    const data = await fetchRes.json();
-    const detData = detRes.ok ? await detRes.json() : null;
-    console.log("API Response Received:", data, "Det:", detData);
-    
-    if (!fetchRes.ok) throw new Error(data.detail || "Verification failed");
+    let data, detData;
+
+    // 🚀 FIX 2: THE MOCK INTERCEPTOR
+    if (isDrug && MOCK_DRUGS[identifier]) {
+        console.log("Intercepted Mock Drug:", identifier);
+        const mockDrug = MOCK_DRUGS[identifier];
+        const mockBatch = MOCK_DB[mockDrug.batch_id];
+        
+        data = {
+            is_authentic: mockBatch.bd.is_authentic,
+            blockchain_status: mockBatch.bd.status,
+            is_sold: mockDrug.is_sold,
+            sold_at: mockDrug.sold_at,
+            data: {
+              drug_name: mockBatch.md ? mockBatch.md.drug_name : "Unknown",
+              manufacturer: mockBatch.md ? mockBatch.md.manufacturer : "Unknown",
+              mfd: mockBatch.bd.mfgDate,
+              exp: mockBatch.bd.expDate
+            },
+            history: mockBatch.history
+        };
+        detData = { history: mockBatch.history, manu_name: mockBatch.md?.manufacturer };
+
+    } else if (!isDrug && MOCK_DB[identifier]) {
+        console.log("Intercepted Mock Batch:", identifier);
+        const mockBatch = MOCK_DB[identifier];
+        data = {
+            is_authentic: mockBatch.bd.is_authentic,
+            blockchain_status: mockBatch.bd.status,
+            data: {
+                drug_name: mockBatch.md ? mockBatch.md.drug_name : "Unknown",
+                manufacturer: mockBatch.md ? mockBatch.md.manufacturer : "Unknown",
+                mfd: mockBatch.bd.mfgDate,
+                exp: mockBatch.bd.expDate,
+            },
+            history: mockBatch.history
+        };
+        detData = { history: mockBatch.history, manu_name: mockBatch.md?.manufacturer };
+
+    } else {
+        // 🌐 THE REAL API CALL (If not found in mock data)
+        let endpoint = isDrug ? `/batch/verify_drug/${identifier}` : `/batch/verify/${identifier}`;
+        let headers = {};
+        const savedToken = localStorage.getItem('rx_token');
+        if (savedToken) headers['Authorization'] = `Bearer ${savedToken}`;
+
+        console.log("Fetching from API...");
+        const [fetchRes, detRes] = await Promise.all([
+          fetch(`${API()}${endpoint}`, { headers }),
+          fetch(`${API()}/batch/batch-det/${batchIdForDet}`, { headers }),
+        ]);
+        
+        data = await fetchRes.json();
+        detData = detRes.ok ? await detRes.json() : null;
+        if (!fetchRes.ok) throw new Error(data.detail || "Verification failed");
+    }
+
+    console.log("Verification Data:", data);
 
     // ONLY DECLARE ONCE
     const fakeAlert = document.getElementById('res-fake-alert');
@@ -613,7 +707,8 @@ async function lookupBatch() {
     }
 
     // 4. POPULATE THE LEFT SIDE
-    const info = isDrug ? data : data.data; 
+    // Mock interceptor uses data.data, API might use data directly based on the endpoint
+    const info = data.data ? data.data : data; 
     document.getElementById('res-name').textContent = info.drug_name || info.drug || "Unknown Drug";
     document.getElementById('res-bid').textContent = info.batch_id || identifier;
     document.getElementById('res-mfr').textContent = info.manufacturer || "Unknown Manufacturer";
@@ -623,11 +718,26 @@ async function lookupBatch() {
     if (info.exp || info.exp_date) document.getElementById('res-exp').textContent = new Date(info.exp || info.exp_date).toLocaleDateString();
 
     // 5. POPULATE THE RIGHT SIDE
-    const mockSideEffects = ['Nausea', 'Dizziness', 'Drowsiness'];
-    const mockAllergies = ['Penicillin', 'Sulfa'];
+    // We try to pull these from the mock metadata if it exists, otherwise use defaults
+    const mockBatchData = MOCK_DB[batchIdForDet];
+    const mockSideEffects = mockBatchData?.md?.side_effects || ['Nausea', 'Dizziness', 'Drowsiness'];
+    const mockAllergies = mockBatchData?.md?.allergies || ['Penicillin', 'Sulfa'];
 
     document.getElementById('res-se').innerHTML = mockSideEffects.map(se => `<span class="tchip tchip-w">${se}</span>`).join('');
     document.getElementById('res-al').innerHTML = mockAllergies.map(al => `<span class="tchip tchip-d">${al}</span>`).join('');
+
+    // 5a. LOAD AI ADVISOR CONTEXT — so Gemini knows exactly what was scanned
+    if (typeof setAdvisorContext === 'function') {
+        setAdvisorContext({
+          drugName:     info.drug_name || info.drug || 'Unknown',
+          manufacturer: info.manufacturer || detData?.manu_name || 'Unknown',
+          mfgDate:      info.mfd || info.mfd_date || detData?.mfd_date || 'Unknown',
+          expDate:      info.exp || info.exp_date || detData?.exp_date || 'Unknown',
+          sideEffects:  info.side_effects || mockSideEffects,
+          allergies:    info.allergies    || mockAllergies,
+          status:       data.blockchain_status || data.status || 'Verified',
+        });
+    }
 
     // 6. SMART ALLERGY CLASH CHECK
     const userAllergies = localStorage.getItem('rx_allergies') || '';
@@ -661,11 +771,9 @@ async function lookupBatch() {
     }
 
     // 8. MAP — use real coords from batch-det history
-    //    If detData has no history (old batch) build a synthetic one from current status
     let mapHistory = detData?.history || data.history || null;
     if (!mapHistory || !mapHistory.length) {
       const currentStatus = data.status || data.blockchain_status || 'CREATED';
-      // Build steps for every stage up to and including current status
       const stageOrder = ['CREATED','IN_TRANSIT_TO_DIST','AT_DISTRIBUTOR','IN_TRANSIT_TO_PHARM','AT_PHARMACY','SOLD'];
       const currentIdx = stageOrder.indexOf(currentStatus);
       mapHistory = stageOrder
@@ -679,12 +787,13 @@ async function lookupBatch() {
     initRealMap(mapHistory);
 
     if (pubLoader) pubLoader.style.display = 'none';
-    if (resultCard) resultCard.style.display = 'block';
+    if (resultCard) { resultCard.style.display = 'block'; resultCard.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
 
   } catch (err) {
     console.error("Lookup Error:", err);
     toast(err.message, 'er');
     if (pubLoader) pubLoader.style.display = 'none';
+    resultArea?.classList.remove('visible');
   } finally {
     if (btn) {
         btn.innerHTML = 'Verify →';
@@ -692,7 +801,6 @@ async function lookupBatch() {
     }
   }
 }
-
 
 function renderResult(id, b, m) {
   document.getElementById('res-name').textContent = m?.drug_name || id;
@@ -758,12 +866,234 @@ function renderResult(id, b, m) {
 function setupReminders() { toast(`Syncing with Calendar…`); setTimeout(()=>toast('✅ Reminders set for 9:00 AM.'),1500); }
 function submitBountyClaim() { toast('Uploading to Validator Network…'); setTimeout(()=>{ document.getElementById('bounty-modal').classList.remove('show'); toast('✅ 5 MATIC transferred!'); },2000); }
 function saveAllergiesFromPage() { localStorage.setItem('userAllergies', document.getElementById('page-allergies').value.toLowerCase()); toast('Profile saved.'); }
+/* =========================================================
+   AI SAFETY ADVISOR  —  Gemini 2.0 Flash
+   ========================================================= */
+
+/* =========================================================
+   AI SAFETY ADVISOR  —  Gemini 2.0 Flash
+   Multi-turn conversation with full drug context injected
+   ========================================================= */
+
+let _advisorContext  = null;
+let _conversationHistory = [];   // multi-turn memory
+
+function setAdvisorContext(ctx) {
+  _advisorContext = ctx;
+  _conversationHistory = [];   // reset history when a new batch is scanned
+
+  const box = document.getElementById('advisor-messages');
+  if (box) {
+    box.innerHTML = `
+      <div class="advisor-msg advisor-msg-ai">
+        <div class="advisor-bubble">
+          👋 I've read the verified profile for <strong>${ctx.drugName || 'this medicine'}</strong>.
+          Ask me anything — interactions with other medications, what a side effect means,
+          whether it's safe to drive, or if you should be worried about an allergy.
+        </div>
+      </div>`;
+  }
+
+  /* Show suggestions again for the new drug */
+  const chips = document.getElementById('advisor-suggestions');
+  if (chips) chips.style.display = 'flex';
+}
+
+function switchResultTab(tab) {
+  document.querySelectorAll('.rpanel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tabpanel-' + tab).classList.add('active');
+
+  document.querySelectorAll('.rtab').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+
+  /* Expand chat pane when AI Advisor tab is active */
+  const split = document.getElementById('res-split-body');
+  if (split) {
+    split.classList.toggle('advisor-open', tab === 'advisor');
+  }
+}
+
+async function sendAdvisorMessage(prefill) {
+  /* ── Guard: need an API key first ── */
+  const key = _getGeminiKey();
+  if (!key) { _promptForKey(); return; }
+
+  const input  = document.getElementById('advisor-input');
+  const text   = (prefill || input?.value || '').trim();
+  if (!text) return;
+  if (input) { input.value = ''; input.style.height = 'auto'; }
+
+  /* Hide suggestion chips after first real message */
+  const chips = document.getElementById('advisor-suggestions');
+  if (chips) chips.style.display = 'none';
+
+  _appendAdvisorMsg(text, 'usr');
+  const typingEl = _appendAdvisorMsg('', 'ai', true);
+
+  const btn = document.getElementById('advisor-send-btn');
+  if (btn) btn.disabled = true;
+
+  try {
+    const reply = await _callGemini(text, key);
+
+    /* Add to conversation memory */
+    _conversationHistory.push({ role: 'user',  text });
+    _conversationHistory.push({ role: 'model', text: reply });
+
+    typingEl.classList.remove('advisor-typing');
+    typingEl.querySelector('.advisor-bubble').innerHTML = _fmtAdvisor(reply);
+  } catch (err) {
+    typingEl.classList.remove('advisor-typing');
+    const bubble = typingEl.querySelector('.advisor-bubble');
+    bubble.style.color = 'var(--danger)';
+
+    if (err.message.includes('API_KEY') || err.message.includes('401') || err.message.includes('403')) {
+      localStorage.removeItem('gemini_api_key');
+      bubble.innerHTML = '🔑 Invalid API key cleared. <span style="cursor:pointer;text-decoration:underline;" onclick="sendAdvisorMessage(\'' + text.replace(/'/g,"\'") + '\')">Try again</span>';
+    } else {
+      bubble.textContent = '⚠ ' + err.message;
+    }
+  } finally {
+    if (btn) btn.disabled = false;
+    const inputEl = document.getElementById('advisor-input');
+    if (inputEl) inputEl.focus();
+  }
+}
+
+function _appendAdvisorMsg(text, who, typing = false) {
+  const box    = document.getElementById('advisor-messages');
+  const row    = document.createElement('div');
+  row.className = 'advisor-msg advisor-msg-' + who + (typing ? ' advisor-typing' : '');
+  const bubble = document.createElement('div');
+  bubble.className   = 'advisor-bubble';
+  bubble.textContent = text;
+  row.appendChild(bubble);
+  box.appendChild(row);
+  box.scrollTop = box.scrollHeight;
+  return row;
+}
+
+function _fmtAdvisor(text) {
+  return text
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')  /* XSS-safe */
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g,     '<em>$1</em>')
+    .replace(/\n/g,            '<br>');
+}
+
+/* ── API key helpers ── */
+function _getGeminiKey() {
+  return localStorage.getItem('gemini_api_key') || CONFIG.GEMINI_API_KEY;
+}
+
+function _promptForKey() {
+  const existing = _getGeminiKey();
+  const key = prompt(
+    (existing ? '🔑 Update your Gemini API key:\n' : '🔑 Enter your Gemini API key to enable the AI advisor.\nGet one free at: aistudio.google.com\n\n') +
+    'Paste your key below:'
+  );
+  if (key?.trim()) {
+    localStorage.setItem('gemini_api_key', key.trim());
+    toast('✅ Gemini API key saved.');
+    /* Update the settings badge */
+    _refreshKeyBadge();
+  }
+}
+
+function _refreshKeyBadge() {
+  const badge = document.getElementById('gemini-key-badge');
+  if (!badge) return;
+  const key = _getGeminiKey();
+  if (key) {
+    badge.textContent  = '🔑 Key set ···' + key.slice(-4);
+    badge.style.color  = 'var(--safe)';
+  } else {
+    badge.textContent  = '🔑 No key — tap to add';
+    badge.style.color  = 'var(--warn)';
+  }
+}
+
+/* ── Multi-turn Gemini call ── */
+async function _callGemini(userMessage, apiKey) {
+  const ctx = _advisorContext || {};
+  const patientAllergies = localStorage.getItem('rx_allergies') || localStorage.getItem('userAllergies') || 'none recorded';
+
+  /* System instruction baked into first user turn (Gemini Flash supports system_instruction) */
+  const systemInstruction = `You are a clinical pharmacy safety advisor embedded in Rx-Block, a blockchain-verified pharmaceutical supply chain platform used by patients in India.
+
+The patient has just scanned and verified this medicine on the blockchain:
+
+Drug name:           ${ctx.drugName     || 'Unknown'}
+Manufacturer:        ${ctx.manufacturer || 'Unknown'}
+Manufacturing date:  ${ctx.mfgDate      || 'Unknown'}
+Expiry date:         ${ctx.expDate      || 'Unknown'}
+Known side effects:  ${ctx.sideEffects?.join(', ') || 'None listed'}
+Allergy warnings:    ${ctx.allergies?.join(', ')    || 'None listed'}
+Blockchain status:   ${ctx.status       || 'VERIFIED'}
+Patient allergies:   ${patientAllergies}
+
+RULES:
+1. Answer ONLY questions about the medicine listed above.
+2. If the patient's allergies overlap with the drug's allergy warnings, start your response with: ⚠️ ALLERGY WARNING: [explain the clash clearly].
+3. Be concise, warm, and use plain everyday language. Maximum 160 words unless critical detail is needed.
+4. Use **bold** for any critical warnings.
+5. For serious medical decisions always end with: "Please consult your doctor or pharmacist before making any changes."
+6. Never make up drug facts not in the profile above. If you don't know, say so.`;
+
+  /* Build multi-turn contents array */
+  const contents = [];
+
+  /* Inject previous turns for memory */
+  for (const turn of _conversationHistory.slice(-6)) {  /* last 3 exchanges */
+    contents.push({
+      role:  turn.role,
+      parts: [{ text: turn.text }],
+    });
+  }
+
+  /* Current user message */
+  contents.push({ role: 'user', parts: [{ text: userMessage }] });
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+
+  const res = await fetch(url, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: systemInstruction }] },
+      contents,
+      generationConfig: {
+        maxOutputTokens: 450,
+        temperature:     0.3,
+        topP:            0.85,
+      },
+      safetySettings: [
+        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',  threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_HARASSMENT',         threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_HATE_SPEECH',        threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_CIVIC_INTEGRITY',    threshold: 'BLOCK_NONE' },
+      ],
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.error?.message || `Gemini error ${res.status}`);
+  }
+
+  const data = await res.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error('Empty response from Gemini.');
+  return text;
+}
+
 
 /* ── QR ── */
 function clearQR() {
   document.getElementById('qr-preview').classList.remove('show');
   document.getElementById('qr-decoded').textContent='—'; document.getElementById('qr-decoded').style.color='';
-  qrBatchId=null; document.getElementById('public-inner').classList.remove('results-active'); document.getElementById('result-card').classList.remove('show');
+  qrBatchId=null; document.getElementById('public-inner').classList.remove('results-active'); document.getElementById('result-area')?.classList.remove('visible'); document.getElementById('result-card').classList.remove('show');
 }
 function handleQRFile(file) {
   if (!file) return;
@@ -1319,4 +1649,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   const bid = new URLSearchParams(window.location.search).get('batch_id');
   if (bid && authToken) { document.getElementById('pub-id').value=bid; lookupBatch(); }
+
+  /* Reflect stored API key in the badge immediately */
+  _refreshKeyBadge();
 });

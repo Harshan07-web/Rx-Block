@@ -214,8 +214,19 @@ nav{ position:sticky;top:0;z-index:200; background:var(--nav-bg);backdrop-filter
 .auth-lbl.safe{color:var(--safe);}
 .auth-lbl.danger{color:var(--danger);}
 
-.result-split { display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; padding: 1.5rem; }
-@media(max-width: 768px) { .result-split { grid-template-columns: 1fr; } }
+.result-split {
+  display: grid;
+  grid-template-columns: 1.8fr 1.2fr;
+  gap: 2rem;
+  transition: grid-template-columns 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+/* When AI Advisor is open: left panel compresses, right chat expands */
+.result-split.advisor-open {
+  grid-template-columns: 1fr 1.6fr;
+}
+@media(max-width: 900px) {
+  .result-split, .result-split.advisor-open { grid-template-columns: 1fr; }
+}
 
 .rc-grid{display:grid;grid-template-columns:1fr;gap:1px;background:var(--border);}
 .rc-cell{background:var(--surface);padding:1.1rem 1.75rem;}
@@ -305,30 +316,40 @@ nav{ position:sticky;top:0;z-index:200; background:var(--nav-bg);backdrop-filter
 /* =========================================================
    🚀 DYNAMIC 3-COLUMN LAYOUT (DESKTOP)
    ========================================================= */
-.page-public-inner { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 1400px; margin: 0 auto; transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);}
-.result-area { width: 100%; max-width: 900px; display: none; }
+/* ── PUBLIC PAGE: clean stacked layout ── */
+#page-public { overflow-y: auto; }
 
-@media (min-width: 1024px) {
-    .page-public-inner { flex-direction: row; justify-content: center; align-items: flex-start; }
-    .hero { transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
-    
-    .page-public-inner.results-active { gap: 3rem; padding: 2rem 1.5rem; }
-    .page-public-inner.results-active .hero { width: 380px; padding-top: 0; text-align: left; }
-    .page-public-inner.results-active .hero-sub,
-    .page-public-inner.results-active .verify-tabs,
-    .page-public-inner.results-active .vpanel { margin-left: 0; margin-right: 0; }
-    .page-public-inner.results-active .hero-title { font-size: 3rem; }
-    
-    .page-public-inner.results-active .result-area { display: block; flex: 1; animation: slideInRight 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
-    .page-public-inner.results-active .result-wrap { padding: 0; }
+.page-public-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 1.25rem 4rem;
 }
 
-@media (max-width: 1023px) {
-    .page-public-inner.results-active .result-area { display: block; animation: slideInUp 0.5s ease forwards; margin-top: 2rem; }
+.hero {
+  width: 100%;
+  max-width: 680px;
+  padding: 3rem 0 2rem;
+  text-align: center;
 }
 
-@keyframes slideInRight { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
-@keyframes slideInUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
+.result-area {
+  display: none;
+  width: 100%;
+  margin-top: 0.5rem;
+  animation: fadeUp 0.4s ease forwards;
+}
+.result-area.visible { display: block; }
+
+.result-wrap { padding: 0; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 
 /* ADMIN LAYOUT UTILS */
 .admin-layout{display:flex;min-height:calc(100vh - 62px);}
@@ -361,4 +382,259 @@ nav{ position:sticky;top:0;z-index:200; background:var(--nav-bg);backdrop-filter
     0% { filter: drop-shadow(0 0 0px var(--accent)); }
     50% { filter: drop-shadow(0 0 8px var(--accent)); }
     100% { filter: drop-shadow(0 0 0px var(--accent)); }
+}
+
+/* =========================================
+   🔥 FINAL CLEAN RIGHT PANEL + AI ADVISOR
+   ========================================= */
+
+/* Right Panel Layout */
+.split-right {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 520px;
+}
+
+/* AI advisor panel fills the full right column when open */
+.result-split.advisor-open .split-right {
+  min-height: 600px;
+}
+.result-split.advisor-open #tabpanel-advisor {
+  flex: 1;
+}
+.result-split.advisor-open .advisor-box {
+  flex: 1;
+}
+.result-split.advisor-open .advisor-messages {
+  max-height: none;
+  flex: 1;
+}
+
+/* Card container */
+.right-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Tabs */
+.rtabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 0;
+  margin-bottom: 4px;
+}
+
+.rtab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;          /* overlay the .rtabs border-bottom */
+  padding: 10px 18px;
+  font-size: 0.73rem;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  font-family: 'IBM Plex Mono', monospace;
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 1;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.rtab:hover {
+  color: var(--text);
+}
+
+.rtab.active {
+  color: var(--accent);
+  border-bottom: 2px solid var(--accent);
+}
+
+/* Panels */
+.rpanel {
+  display: none;
+}
+
+.rpanel.active {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  flex: 1;
+}
+
+/* Info Sections */
+.info-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* =========================================
+   AI CHAT
+   ========================================= */
+
+.advisor-box {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 380px;
+  gap: 12px;
+}
+
+/* Header */
+.advisor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Messages */
+.advisor-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 6px;
+}
+
+/* Bubbles */
+.advisor-msg {
+  display: flex;
+}
+
+.advisor-msg-ai {
+  justify-content: flex-start;
+}
+
+.advisor-msg-usr {
+  justify-content: flex-end;
+}
+
+.advisor-bubble {
+  max-width: 75%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+/* AI bubble */
+.advisor-msg-ai .advisor-bubble {
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+/* User bubble */
+.advisor-msg-usr .advisor-bubble {
+  background: var(--accent);
+  color: white;
+}
+
+/* Suggestions */
+.advisor-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.adv-chip {
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.adv-chip:hover {
+  background: var(--accent);
+  color: white;
+}
+
+/* Input */
+.advisor-input-area {
+  display: flex;
+  gap: 8px;
+}
+
+.advisor-input-area input {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+.advisor-input-area button {
+  padding: 0 16px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  cursor: pointer;
+}
+
+/* =========================================================
+   AI ADVISOR PANEL — open-state animations & layout polish
+   ========================================================= */
+
+/* Slide in the right panel when advisor opens */
+.result-split.advisor-open .split-right {
+  animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.result-split.advisor-open .split-left {
+  animation: compressLeft 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideInRight {
+  from { opacity: 0.6; transform: translateX(12px); }
+  to   { opacity: 1;   transform: translateX(0); }
+}
+@keyframes compressLeft {
+  from { opacity: 0.85; }
+  to   { opacity: 1; }
+}
+
+/* Wrap result-split in padding */
+.result-split {
+  padding: 1.5rem 1.75rem;
+}
+
+/* Typing indicator animation */
+.advisor-typing .advisor-bubble::after {
+  content: ' ···';
+  animation: blink 1.2s steps(3, end) infinite;
+  color: var(--accent);
+  font-weight: 700;
+}
+@keyframes blink {
+  0%,100% { opacity: 0; } 50% { opacity: 1; }
+}
+
+/* Advisor input - match theme */
+.advisor-input-area input {
+  background: var(--input-bg);
+  color: var(--text);
+  font-family: 'Sora', sans-serif;
+  font-size: 0.83rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.advisor-input-area input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-bg);
 }
