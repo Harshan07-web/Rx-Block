@@ -423,16 +423,26 @@ function initRealMap(history) {
 
     L.marker([step.lat, step.lng], { icon })
       .addTo(markerLayer)
-      .bindTooltip(tooltipHtml, { permanent: isLast, direction: 'top', className: 'map-tooltip' });
+      .bindTooltip(tooltipHtml, { permanent: false, direction: 'top', className: 'map-tooltip' });
   });
 
   markerLayer.addTo(leafletMap);
 
   /* fitBounds only when we have more than one unique point */
   const bounds = markerLayer.getBounds();
+
+  /* Force size recalculation — container may have been hidden when map was created */
+  leafletMap.invalidateSize(false);
+
   if (bounds.isValid() && latLngs.length > 1) {
     leafletMap.fitBounds(bounds, { padding: [50, 50], maxZoom: 13 });
+  } else if (steps.length === 1) {
+    leafletMap.setView([steps[0].lat, steps[0].lng], 7);
   }
+
+  /* Redundant safety invalidations after CSS transitions settle */
+  setTimeout(() => { leafletMap?.invalidateSize(true); }, 150);
+  setTimeout(() => { leafletMap?.invalidateSize(true); }, 500);
 }
 function toggleMapExpansion() {
   const w = document.getElementById('map-wrapper');
@@ -784,10 +794,25 @@ async function lookupBatch() {
 
     const splitBody = document.getElementById('res-split-body');
     if (splitBody) splitBody.style.display = 'grid';
-    initRealMap(mapHistory);
 
+    /* Show the card BEFORE initialising the map so Leaflet can measure the container */
+    resultArea?.classList.add('visible');
+    if (resultCard) {
+      resultCard.classList.add('show');
+      resultCard.style.display = 'block';
+    }
     if (pubLoader) pubLoader.style.display = 'none';
-    if (resultCard) { resultCard.style.display = 'block'; resultCard.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+
+    /* Small rAF delay so the browser paints the visible container before Leaflet measures */
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        initRealMap(mapHistory);
+        setTimeout(() => {
+          leafletMap?.invalidateSize(true);
+          resultCard?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 200);
+      });
+    });
 
   } catch (err) {
     console.error("Lookup Error:", err);
@@ -826,7 +851,13 @@ function renderResult(id, b, m) {
   }
   document.getElementById('res-fake-alert').style.display = 'none';
   document.getElementById('res-split-body').style.display = 'grid';
-  initRealMap(null); /* renderResult used by mock data only — no real history */
+  /* Show card before map init so Leaflet can measure the container */
+  document.getElementById('result-card').classList.add('show');
+  document.getElementById('result-area')?.classList.add('visible');
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    initRealMap(null); /* renderResult used by mock data only — no real history */
+    setTimeout(() => leafletMap?.invalidateSize(true), 200);
+  }));
 
   const KNOWN = { '0xcf1c29507ff3d3dfc630fafcffadf64a334e031f':'City Care Pharmacy', '0x2222333344445555666677778888999900001111':'Global Pharma Distributors' };
   let owner = b.current_owner || '—';
@@ -1054,7 +1085,7 @@ RULES:
   /* Current user message */
   contents.push({ role: 'user', parts: [{ text: userMessage }] });
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
   const res = await fetch(url, {
     method:  'POST',
