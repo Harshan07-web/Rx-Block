@@ -332,7 +332,6 @@
                 
                 <div class="rtabs">
                   <button type="button" class="rtab active" id="tab-medinfo" onclick="switchResultTab('medinfo')">MED INFO</button>
-                  <button type="button" class="rtab" id="tab-advisor" onclick="switchResultTab('advisor')">AI ADVISOR</button>
                 </div>
 
                 <div class="rpanel active" id="tabpanel-medinfo">
@@ -354,30 +353,6 @@
                   </div>
                 </div>
 
-                <div class="rpanel" id="tabpanel-advisor">
-                  <div class="advisor-box">
-                    
-                    <div class="advisor-header">
-                      <span style="font-weight: 700; color: var(--accent);">GEMINI SAFETY ADVISOR</span>
-                      <span id="gemini-key-badge" style="cursor: pointer; background: var(--surface); padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border);" onclick="_promptForKey()">🔑 Key Check</span>
-                    </div>
-                    
-                    <div class="advisor-messages" id="advisor-messages">
-                      </div>
-
-                    <div class="advisor-suggestions" id="advisor-suggestions">
-                      <button class="adv-chip" onclick="sendAdvisorMessage(this.textContent)">With metformin?</button>
-                      <button class="adv-chip" onclick="sendAdvisorMessage(this.textContent)">Safe to drive?</button>
-                      <button class="adv-chip" onclick="sendAdvisorMessage(this.textContent)">Missed dose?</button>
-                      <button class="adv-chip" onclick="sendAdvisorMessage(this.textContent)">Pregnancy safe?</button>
-                    </div>
-
-                    <div class="advisor-input-area">
-                      <input type="text" id="advisor-input" placeholder="Ask about this medicine..." onkeydown="if(event.key==='Enter') sendAdvisorMessage()" autocomplete="off" />
-                      <button id="advisor-send-btn" onclick="sendAdvisorMessage()">↑</button>
-                    </div>
-                    
-                  </div>
                 </div>
 
               </div>
