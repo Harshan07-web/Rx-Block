@@ -1,7 +1,7 @@
 # 👥 Contributors
 
 - [Harshan07-web](https://github.com/Harshan07-web) — 54 commits
-- [actions-user](https://github.com/actions-user) — 8 commits
+- [actions-user](https://github.com/actions-user) — 9 commits
 - [ArunachalamSubramanian](https://github.com/ArunachalamSubramanian) — 8 commits
 - [joelsam7](https://github.com/joelsam7) — 5 commits
 - [Mpugazh2124](https://github.com/Mpugazh2124) — 3 commits
