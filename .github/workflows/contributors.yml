@@ -2,7 +2,7 @@ name: Auto Update Contributors
 
 on:
   schedule:
-    - cron: "0 0 * * *"   # runs daily
+    - cron: "0 0 * * 0"  
   workflow_dispatch:      # manual trigger
 
 jobs:

@@ -702,7 +702,7 @@ async function lookupBatch() {
           </div>
         `;
         
-        document.getElementById('res-status').textContent = '✅ AUTHENTIC (SOLD)';
+        document.getElementById('res-status').textContent = 'AUTHENTIC (SOLD)';
         document.getElementById('res-status').className = 'spill s-SOLD'; 
         document.getElementById('res-aicon').textContent = '✓';
         document.getElementById('res-albl').textContent = 'Blockchain Verified';
@@ -710,7 +710,7 @@ async function lookupBatch() {
 
     } else {
       // 🟢 AUTHENTIC AND UNSOLD
-      document.getElementById('res-status').textContent = '✅ AUTHENTIC';
+      document.getElementById('res-status').textContent = 'AUTHENTIC';
       document.getElementById('res-status').className = 'spill s-CREATED';
       document.getElementById('res-aicon').textContent = '✓';
       document.getElementById('res-albl').textContent = 'Blockchain Verified';
