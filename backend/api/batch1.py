@@ -48,7 +48,6 @@ class CreateBatchT1(BaseModel):
     mfd: date
     exp: date
     batch_quantity: int
-    private_key: str
     image: str   
 
     @field_validator("batch_quantity")
@@ -114,6 +113,7 @@ def _get_wallet_address(username: str, auth_db) -> str:
 @router.post("/create-drugs-t1", status_code=201)
 async def create_batch_t1(payload:CreateBatchT1,auth = Depends(get_authed_user("MANUFACTURER")),db: Session = Depends(get_db)):
     user, current_user = auth
+    print(f"DEBUG user: {user}, pk: {user.private_key if user else 'NO USER'}")
 
     if db.query(DrugBatch).filter(DrugBatch.batch_id == payload.batch_id).first():
         raise HTTPException(status_code=409, detail="Batch ID already exists")

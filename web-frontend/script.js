@@ -358,7 +358,7 @@ const STATUS_LABELS = {
   IN_TRANSIT_TO_DIST:   '🚚 En Route to Distributor',
   AT_DISTRIBUTOR:       '📦 Distributor Hub',
   IN_TRANSIT_TO_PHARM:  '🚐 En Route to Pharmacy',
-  AT_PHARMACY:          '🏥 Pharmacy',
+  AT_PHARMACY:          ' Pharmacy',
   SOLD:                 '✅ Dispensed',
 };
 
@@ -695,7 +695,7 @@ async function lookupBatch() {
         recentAlert.style.gap = '12px';
         recentAlert.style.marginBottom = '1.5rem';
         recentAlert.innerHTML = `
-          <span style="font-size: 1.8rem;">ℹ️</span>
+          <span style="font-size: 1.8rem;"></span>
           <div>
             <div style="font-family:'IBM Plex Mono',monospace; font-size:0.7rem; letter-spacing:1px; text-transform:uppercase; font-weight:700; margin-bottom:3px; color: var(--warn);">Recently Dispensed</div>
             <div style="font-size: 0.85rem; font-weight: 500; color: var(--text);">This medicine was officially marked as sold at <b>${soldDate.toLocaleTimeString()}</b>. If you just picked this up from the pharmacy, your medicine is perfectly safe!</div>
@@ -710,7 +710,7 @@ async function lookupBatch() {
 
     } else {
       // 🟢 AUTHENTIC AND UNSOLD
-      document.getElementById('res-status').textContent = 'AUTHENTIC';
+      document.getElementById('res-status').textContent = '✅ AUTHENTIC';
       document.getElementById('res-status').className = 'spill s-CREATED';
       document.getElementById('res-aicon').textContent = '✓';
       document.getElementById('res-albl').textContent = 'Blockchain Verified';
@@ -926,7 +926,7 @@ function lookupFromQR() { if(!qrBatchId) return toast('No QR decoded yet.','er')
 function openQrImage() {
   const id=document.getElementById('qr-lookup-id')?.value.trim();
   if (!id) return toast('Enter a Batch or Drug ID.','er');
-  window.open(`${API()}/batch/get-qr/${encodeURIComponent(id)}`,'_blank');
+  window.open(`${API()}/batch/qr/${encodeURIComponent(id)}`,'_blank');
 }
 
 function withLoading(btnId, label, fn) {
@@ -938,81 +938,71 @@ function withLoading(btnId, label, fn) {
 /* Admin calls — all use apiFetch (JWT injected automatically) */
 
 async function createBatch() {
-  // 🚀 FIX 1: Cleaned up the declarations so the JavaScript parser doesn't crash
   const batchId  = document.getElementById('cb-batch-id')?.value.trim();
   const drugName = document.getElementById('cb-drug-name')?.value.trim();
   const manuName = document.getElementById('cb-manu-name')?.value.trim();
   const mfd      = document.getElementById('cb-mfd')?.value;
   const exp      = document.getElementById('cb-exp')?.value;
   const qty      = parseInt(document.getElementById('cb-qty')?.value);
-  const pk       = document.getElementById('mfg-pk')?.value.trim();
   const imgFile  = document.getElementById('cb-img')?.files[0];
-        
-  // 🚀 FIX 2: Added !pk to the validation check so the UI catches it if it's empty
-  if(!batchId || !drugName || !manuName || !mfd || !exp || !qty || !pk) {
-    return toast('All fields (including Private Key) are required.','er');
-  }
-  
-  if(!imgFile) return toast('Select a license image.','er');
-  if(new Date(exp) <= new Date(mfd)) return toast('Expiry must be after manufacturing date.','er');
-  
-  withLoading('cb-submit-btn','Create & Generate QR', async() => {
+
+  if (!batchId || !drugName || !manuName || !mfd || !exp || !qty)
+    return toast('All fields are required.', 'er');
+  if (!imgFile)
+    return toast('Select a license image.', 'er');
+  if (new Date(exp) <= new Date(mfd))
+    return toast('Expiry must be after manufacturing date.', 'er');
+
+  withLoading('cb-submit-btn', 'Create & Generate QR', async () => {
     try {
-      const base64 = await new Promise((res,rej) => {
+      const base64 = await new Promise((res, rej) => {
         const r = new FileReader();
-        r.onload = e => res(e.target.result.split(',')[1]);
+        r.onload  = e => res(e.target.result.split(',')[1]);
         r.onerror = rej;
         r.readAsDataURL(imgFile);
       });
-      
+
       const fetchRes = await apiFetch('/batch/create-drugs-t1', {
-        method:'POST',
+        method: 'POST',
         body: JSON.stringify({
-          batch_id: batchId,
-          drug_name: drugName,
+          batch_id:          batchId,
+          drug_name:         drugName,
           manufacturer_name: manuName,
-          mfd: mfd,
-          exp: exp,
-          batch_quantity: qty,
-          private_key: pk, // This will now successfully send to Python!
-          image: base64
-        })
+          mfd,
+          exp,
+          batch_quantity:    qty,
+          image:             base64,
+        }),
       });
-      
-      // 1. Read the new JSON response!
+
       const data = await fetchRes.json();
-      if(!fetchRes.ok) throw new Error(extractDetail(data));
-      
-      // 2. Fetch the Batch QR from our new Python endpoint
-      document.getElementById('cb-qr-img').src = `${API()}/batch/qr/${data.batch_id}`;
+      if (!fetchRes.ok) throw new Error(extractDetail(data));
+
+      const finalBatchId = data.batch_id || batchId;
+
+      document.getElementById('cb-qr-img').src = `${API()}/batch/qr/${finalBatchId}`;
       document.getElementById('cb-qr-wrap').classList.add('show');
-      
-      // 3. Read the TX and Hash from the JSON data
-      document.getElementById('cb-tx-hash').textContent = `TX: ${data.transaction || '—'}`;
-      document.getElementById('cb-chain-hash').textContent = `Seal: ${(data.blockchain_hash || '—').substring(0,24)}…`;
-      toast(`✅ Batch ${batchId} registered!`);
+      document.getElementById('cb-tx-hash').textContent    = `TX: ${data.transaction    || '—'}`;
+      document.getElementById('cb-chain-hash').textContent = `Seal: ${(data.blockchain_hash || '—').substring(0, 24)}…`;
+      toast(`✅ Batch ${batchId} registered on-chain!`);
 
-      // 🚀 4. Add the Print PDF button right below the QR code!
-      const wrap = document.getElementById('cb-qr-wrap'); 
+      // Remove any old buttons to prevent duplicates
+      document.getElementById('print-qr-btn')?.remove();
       
-      // Clean up the old button if they click submit twice
-      const oldBtn = document.getElementById('print-qr-btn'); 
-      if (oldBtn) oldBtn.remove();
+      // Spawn the Bulk PDF Printer Button!
+      const printBtn         = document.createElement('button');
+      printBtn.id            = 'print-qr-btn';
+      printBtn.className     = 'btn btn-p'; // Changed to primary color
+      printBtn.style.cssText = 'margin-top:12px;width:100%;justify-content:center;';
+      printBtn.textContent   = ' Download Unit QRs (PDF)';
+      
+      // Hook it directly into your PDF generator function
+      printBtn.onclick       = () => printUnitQRs(finalBatchId, qty);
+      
+      document.getElementById('cb-qr-wrap').appendChild(printBtn);
 
-      const printBtn = document.createElement('button');
-      printBtn.id = 'print-qr-btn';
-      printBtn.className = 'btn btn-g'; 
-      printBtn.style.marginTop = '15px';
-      printBtn.style.width = '100%';
-      printBtn.innerHTML = '🖨️ Download Unit QRs (PDF)';
-      
-      // Trigger the PDF generation function
-      printBtn.onclick = () => printUnitQRs(batchId, qty); 
-      
-      wrap.appendChild(printBtn);
-
-    } catch(err){
-      toast(err.message,'er');
+    } catch (err) {
+      toast(err.message, 'er');
     }
   });
 }

@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
+  <link rel="icon" href="data:,">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <!-- leaflet-routing-machine removed: map now uses real coords + plain polyline -->
@@ -495,7 +496,7 @@
         <div id="panel-create" class="panel active">
           <div class="card">
             <div class="card-hdr">
-              <span class="card-hdr-t">🧪 Register New Drug Batch</span>
+              <span class="card-hdr-t"> Register New Drug Batch</span>
               <span style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:var(--muted);">POST /batch/create-drugs-t1</span>
             </div>
             <div class="card-body">
@@ -540,7 +541,7 @@
                 <div class="tx-info" id="cb-tx-hash"></div>
                 <div class="tx-info" id="cb-chain-hash"></div>
                 <button class="btn btn-g btn-sm" style="margin-top:10px;" onclick="document.getElementById('cb-qr-img').click()">
-                  💾 Right-click QR to save
+                   Right-click QR to save
                 </button>
               </div>
             </div>
@@ -554,7 +555,7 @@
         <div id="panel-split" class="panel">
           <div class="card">
             <div class="card-hdr">
-              <span class="card-hdr-t">✂️ Split Batch</span>
+              <span class="card-hdr-t">Split Batch</span>
               <span style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:var(--muted);">POST /batch/split-batch</span>
             </div>
             <div class="card-body">
@@ -587,7 +588,7 @@
 <div id="panel-transfer" class="panel">
           <div class="card">
             <div class="card-hdr">
-              <span class="card-hdr-t">🚚 Ship to Distributor</span>
+              <span class="card-hdr-t">Ship to Distributor</span>
               <span style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:var(--muted);">POST /batch/ship-dist</span>
             </div>
             <div class="card-body">
@@ -613,7 +614,7 @@
         <div id="panel-accept" class="panel">
           <div class="card">
             <div class="card-hdr">
-              <span class="card-hdr-t">📦 Accept Delivery (Distributor)</span>
+              <span class="card-hdr-t">Accept Delivery (Distributor)</span>
               <span style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:var(--muted);">POST /batch/receive-dist</span>
             </div>
             <div class="card-body">
@@ -633,7 +634,7 @@
         <div id="panel-transfer-pharmacy" class="panel">
           <div class="card">
             <div class="card-hdr">
-              <span class="card-hdr-t">🏥 Ship to Pharmacy</span>
+              <span class="card-hdr-t">Ship to Pharmacy</span>
               <span style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:var(--muted);">POST /batch/ship-pharma</span>
             </div>
             <div class="card-body">
@@ -659,7 +660,7 @@
         <div id="panel-pharmacy-accept" class="panel">
           <div class="card">
             <div class="card-hdr">
-              <span class="card-hdr-t">✅ Accept Delivery (Pharmacy)</span>
+              <span class="card-hdr-t">Accept Delivery (Pharmacy)</span>
               <span style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:var(--muted);">POST /batch/receive-pharma</span>
             </div>
             <div class="card-body">
@@ -679,7 +680,7 @@
         <div id="panel-sell" class="panel">
           <div class="card">
             <div class="card-hdr">
-              <span class="card-hdr-t">💊 Mark Unit as Sold</span>
+              <span class="card-hdr-t"> Mark Unit as Sold</span>
               <span style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:var(--muted);">POST /batch/drug-status</span>
             </div>
             <div class="card-body">
@@ -703,16 +704,32 @@
             </div>
           </div>          <!-- Quick batch QR lookup -->
           <div class="card">
-            <div class="card-hdr"><span class="card-hdr-t">🔳 Get Drug/Batch QR</span></div>
+            <div class="card-hdr"><span class="card-hdr-t">🖨️ Print Individual Drug QRs</span></div>
             <div class="card-body">
-              <div class="fld">
-                <label>Drug ID or Batch ID</label>
-                <input type="text" id="qr-lookup-id" placeholder="e.g. BATCH-2025-001-D15 or BATCH-2025-001" />
-              </div>
-              <div class="factions">
-                <button type="button" class="btn btn-g" onclick="openQrImage()">
-                  🔗 Open QR Image
-                </button>
+              <p style="font-size:0.82rem;color:var(--muted);margin-bottom:1rem;">
+                Individual drug units are automatically created when you register a batch. Use this tool to retrieve their QR codes.
+              </p>
+              <div class="fld-grid">
+                
+                <div class="fld" style="background: var(--surface2); padding: 15px; border-radius: 12px; border: 1px solid var(--border);">
+                  <label>View Single QR (Batch or Drug)</label>
+                  <input type="text" id="qr-lookup-id" placeholder="e.g. BATCH-001-D15" style="margin-bottom: 10px;" />
+                  <button type="button" class="btn btn-g" style="justify-content: center;" onclick="openQrImage()">
+                     Open Single Image
+                  </button>
+                </div>
+
+                <div class="fld" style="background: var(--surface2); padding: 15px; border-radius: 12px; border: 1px solid var(--accent-bd);">
+                  <label style="color: var(--accent);">Bulk Download Unit QRs (PDF)</label>
+                  <input type="text" id="bulk-pdf-id" placeholder="Enter Batch ID (e.g. TEST-001)" style="margin-bottom: 10px;" />
+                  <div style="display:flex; gap:10px;">
+                    <input type="number" id="bulk-pdf-qty" placeholder="Qty" style="width: 35%;" />
+                    <button type="button" class="btn btn-p" style="flex: 1; justify-content: center;" onclick="if(document.getElementById('bulk-pdf-id').value && document.getElementById('bulk-pdf-qty').value) { printUnitQRs(document.getElementById('bulk-pdf-id').value, document.getElementById('bulk-pdf-qty').value); } else { toast('Enter Batch ID and Quantity', 'er'); }">
+                       Download PDF
+                    </button>
+                  </div>
+                </div>
+
               </div>
             </div>
           </div>
